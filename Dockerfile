@@ -8,11 +8,14 @@ FROM php:8.3-apache
 RUN a2enmod rewrite
 
 # ── Stage: fetch warframe-public-export-plus JSON data via npm ────────────────
-# We install Node.js, run npm ci to pull the package, then copy just the package
-# directory into the web root as a real directory (not a symlink).
-# Apache cannot follow symlinks that resolve outside the docroot without a
-# matching <Directory> block for the real target path — copying avoids that
-# entirely and also lets us remove Node.js from the final image to keep it lean.
+# We install Node.js, pull just the one package we need (by name, not npm ci),
+# copy its data directory into the web root as a plain real directory, then
+# remove Node.js and node_modules — neither is needed at runtime.
+#
+# Why not `npm ci --omit=dev`?
+# warframe-public-export-plus is a devDependency in package.json (it's only
+# used at build/dev time for its JSON data files and TS types). --omit=dev
+# skips it entirely, so we install it explicitly by name instead.
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && apt-get clean \
@@ -23,9 +26,7 @@ COPY . /var/www/html/
 
 WORKDIR /var/www/html
 
-# Install npm deps, copy the data package into the web root as a plain directory,
-# then remove node_modules and Node.js — they're not needed at runtime.
-RUN npm ci --omit=dev \
+RUN npm install warframe-public-export-plus \
     && cp -r node_modules/warframe-public-export-plus /var/www/html/warframe-public-export-plus \
     && rm -rf node_modules \
     && apt-get purge -y nodejs \

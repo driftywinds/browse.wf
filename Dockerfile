@@ -49,6 +49,59 @@ RUN sed -i 's|https://browse\.wf||g' \
         /var/www/html/typestripped/profile.js \
         /var/www/html/typestripped/prime-vault.js
 
+# ── Patch 404.php: add image redirect handler ─────────────────────────────────
+# Three places in the compiled JS do a raw `"" + item.icon` src assignment
+# (live.js Darvo deal icon, index.js syndicate icons, profile.js achievement icons)
+# after our sed strips the browse.wf origin. This sends /Lotus/*.png requests to
+# our server, but 404.php only handles JSON data — it has no image handler.
+#
+# Fix: inject a handler right after the /Lotus/ guard that checks ExportImages.json
+# and issues a 302 redirect to content.warframe.com with the content hash,
+# exactly mirroring what the real browse.wf serves from its game-file symlink.
+RUN python3 - << 'PYEOF'
+with open("/var/www/html/404.php", "r") as f:
+    content = f.read()
+
+image_handler = r"""
+// Image proxy: redirect /Lotus/*.png and /Lotus/*.jpg to the Warframe CDN.
+// Several JS paths do a direct img.src = icon assignment without going through
+// setImageSource/ExportImages, so those requests land here as real HTTP requests.
+$img_ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+if ($img_ext === "png" || $img_ext === "jpg")
+{
+    $ExportImages = json_decode(file_get_contents("warframe-public-export-plus/ExportImages.json"), true);
+    if (isset($ExportImages[$path]))
+    {
+        $entry = $ExportImages[$path];
+        if (!empty($entry["forumName"]))
+        {
+            http_response_code(302);
+            header("Location: https://media.invisioncic.com/Mwarframe/pages_media/" . $entry["forumName"] . ".png");
+            exit;
+        }
+        else if (!empty($entry["contentHash"]))
+        {
+            http_response_code(302);
+            header("Location: https://content.warframe.com/PublicExport" . $path . "!" . $entry["contentHash"]);
+            exit;
+        }
+    }
+    // No entry found — nothing we can do.
+    exit;
+}
+
+"""
+
+# Insert right after the /Lotus/ guard block (after the closing brace of the "exit;" block)
+insert_after = "}\n\nfunction finishWithData"
+content = content.replace(insert_after, "}\n" + image_handler + "\nfunction finishWithData", 1)
+
+with open("/var/www/html/404.php", "w") as f:
+    f.write(content)
+
+print("404.php patched successfully")
+PYEOF
+
 # ── Apache virtual-host ───────────────────────────────────────────────────────
 # FollowSymLinks is required by Apache whenever mod_rewrite is active — it's a
 # hard security requirement in Apache itself (see AH00670). There are no actual
@@ -76,7 +129,7 @@ ServerName localhost
         RewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI}.php -f
         RewriteRule ^(.+)$ $1.php [L]
 
-        # Route unresolved /Lotus/* to 404.php (Warframe asset JSON handler)
+        # Route unresolved /Lotus/* to 404.php (Warframe asset JSON + image handler)
         RewriteCond %{REQUEST_FILENAME} !-f
         RewriteCond %{REQUEST_URI} ^/Lotus/
         RewriteRule ^ /404.php [L]

@@ -205,10 +205,10 @@ declare global {
 const dict_promise = getDictPromise();
 const osdict_promise = getOSDictPromise();
 const dicts_promise = Promise.all([ dict_promise, osdict_promise ]);
-const ExportRegions_promise = fetch("https://browse.wf/warframe-public-export-plus/ExportRegions.json").then(res => res.json());
-const ExportChallenges_promise = fetch("https://browse.wf/warframe-public-export-plus/ExportChallenges.json").then(res => res.json());
-const ExportMissionTypes_promise = fetch("https://browse.wf/warframe-public-export-plus/ExportMissionTypes.json").then(res => res.json());
-const ExportFactions_promise = fetch("https://browse.wf/warframe-public-export-plus/ExportFactions.json").then(res => res.json());
+const ExportRegions_promise = fetch("/warframe-public-export-plus/ExportRegions.json").then(res => res.json());
+const ExportChallenges_promise = fetch("/warframe-public-export-plus/ExportChallenges.json").then(res => res.json());
+const ExportMissionTypes_promise = fetch("/warframe-public-export-plus/ExportMissionTypes.json").then(res => res.json());
+const ExportFactions_promise = fetch("/warframe-public-export-plus/ExportFactions.json").then(res => res.json());
 
 dict_promise.then(dict => { (window as any).dict = dict; });
 osdict_promise.then(osdict => { (window as any).osdict = osdict; });
@@ -883,7 +883,7 @@ async function updateDarvosDeal()
 	const item_data = await getItemDataPromise(window.dailyDeal.StoreItem);
 	await dicts_promise;
 	document.getElementById("darvo-item").textContent = dict[item_data.name];
-	(document.getElementById("darvo-icon") as HTMLImageElement).src = "https://browse.wf" + item_data.icon;
+	(document.getElementById("darvo-icon") as HTMLImageElement).src = item_data.icon;
 	document.getElementById("darvo-stock").textContent = (window.dailyDeal.AmountTotal - window.dailyDeal.AmountSold) + "/" + window.dailyDeal.AmountTotal;
 	document.getElementById("darvo-ogprice").textContent = window.dailyDeal.OriginalPrice.toString();
 	document.getElementById("darvo-price").textContent = window.dailyDeal.SalePrice.toString();
@@ -1235,7 +1235,7 @@ function getItemDataPromise(uniqueName: string): Promise<any>
 	uniqueName = uniqueName.split("/Lotus/StoreItems/").join("/Lotus/");
 	if (!item_data_promises[uniqueName])
 	{
-		item_data_promises[uniqueName] = fetch("https://browse.wf" + uniqueName).then(res => res.json());
+		item_data_promises[uniqueName] = fetch(uniqueName).then(res => res.json());
 	}
 	return item_data_promises[uniqueName];
 }
@@ -1727,7 +1727,7 @@ dicts_promise.then(([dict, osdict]) =>
 	};
 
 	Promise.all([
-		fetch("https://browse.wf/arbys.txt").then(res => res.text()),
+		fetch("/arbys.txt").then(res => res.text()),
 		loadScriptPromise("supplemental-data/arbyTiers.js"),
 		ExportRegions_promise
 	]).then(([arbys]) =>
@@ -1736,7 +1736,7 @@ dicts_promise.then(([dict, osdict]) =>
 		updateArby();
 	});
 
-	fetch("https://browse.wf/sp-incursions.txt").then(res => res.text()).then(async (incursions) => {
+	fetch("/sp-incursions.txt").then(res => res.text()).then(async (incursions) => {
 		await ExportRegions_promise;
 		window.incursions = incursions.split("\n").map(line => line.split(";")).filter(arr => arr.length == 2).map(arr => [ parseInt(arr[0]), arr[1] ]);
 		updateIncursions();

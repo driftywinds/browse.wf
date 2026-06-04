@@ -14,7 +14,7 @@ document.querySelectorAll(".navbar-nav .nav-link.active, .navbar-nav .dropdown-i
 
 function getDictPromise()
 {
-	return fetch("https://browse.wf/warframe-public-export-plus/dict." + (localStorage.getItem("lang") ?? "en") + ".json").then(res => res.json());
+	return fetch("/warframe-public-export-plus/dict." + (localStorage.getItem("lang") ?? "en") + ".json").then(res => res.json());
 }
 
 function getOSDictPromise()
@@ -73,7 +73,7 @@ function setImageSource(img, icon)
 	}
 	else
 	{
-		img.src = "https://browse.wf" + icon;
+		img.src = icon;
 	}
 }
 
@@ -85,7 +85,7 @@ function resolveTextIcons(text)
 		const name = match.split("<").join("").split(">").join("");
 		if (ExportTextIcons[name]?.DIT_AUTO)
 		{
-			return "<img alt='<" + name + ">' style='height:1em;position:relative;bottom:2px' src='https://browse.wf" + ExportTextIcons[name].DIT_AUTO + "' />";
+			return "<img alt='<" + name + ">' style='height:1em;position:relative;bottom:2px' src='" + ExportTextIcons[name].DIT_AUTO + "' />";
 		}
 		//console.warn("Failed to resolve text icon:", name);
 		return "&lt;" + name + "&gt;";

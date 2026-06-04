@@ -1,0 +1,21 @@
+services:
+  browse-wf:
+    #build:
+     # context: .
+      # Produces a multi-architecture image when using:
+      #   docker buildx build --platform linux/amd64,linux/arm64 --push -t yourrepo/browse-wf .
+      # For a plain local build, just run: docker compose up --build
+    image: ghcr.io/driftywinds/browse-wf:latest
+    container_name: browse-wf
+    restart: unless-stopped
+    ports:
+      - "9092:80"
+    # Optional: mount a local copy of the source for development (comment out for production)
+    # volumes:
+    #   - .:/var/www/html
+    #healthcheck:
+    #  test: ["CMD", "curl", "-f", "http://localhost/"]
+    #  interval: 30s
+    #  timeout: 10s
+    #  retries: 3
+    #  start_period: 10s

@@ -28,6 +28,15 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 # Copy source files
 COPY . /var/www/html/
 
+# Overwrite 404.php with our pre-patched version that adds an image proxy handler.
+# The compiled JS has raw `img.src = icon` assignments in live.js (Darvo deal),
+# index.js (syndicate icons), and profile.js (achievement icons) that bypass
+# setImageSource/ExportImages. After our sed strips the browse.wf origin those
+# become relative /Lotus/*.png requests hitting our server. The patched 404.php
+# catches .png/.jpg paths, looks them up in ExportImages.json, and issues a 302
+# redirect to content.warframe.com (or media.invisioncic.com) with the content hash.
+COPY 404.php /var/www/html/404.php
+
 WORKDIR /var/www/html
 
 RUN npm install warframe-public-export-plus \
@@ -48,59 +57,6 @@ RUN sed -i 's|https://browse\.wf||g' \
         /var/www/html/typestripped/arbys.js \
         /var/www/html/typestripped/profile.js \
         /var/www/html/typestripped/prime-vault.js
-
-# ── Patch 404.php: add image redirect handler ─────────────────────────────────
-# Three places in the compiled JS do a raw `"" + item.icon` src assignment
-# (live.js Darvo deal icon, index.js syndicate icons, profile.js achievement icons)
-# after our sed strips the browse.wf origin. This sends /Lotus/*.png requests to
-# our server, but 404.php only handles JSON data — it has no image handler.
-#
-# Fix: inject a handler right after the /Lotus/ guard that checks ExportImages.json
-# and issues a 302 redirect to content.warframe.com with the content hash,
-# exactly mirroring what the real browse.wf serves from its game-file symlink.
-RUN python3 - << 'PYEOF'
-with open("/var/www/html/404.php", "r") as f:
-    content = f.read()
-
-image_handler = r"""
-// Image proxy: redirect /Lotus/*.png and /Lotus/*.jpg to the Warframe CDN.
-// Several JS paths do a direct img.src = icon assignment without going through
-// setImageSource/ExportImages, so those requests land here as real HTTP requests.
-$img_ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-if ($img_ext === "png" || $img_ext === "jpg")
-{
-    $ExportImages = json_decode(file_get_contents("warframe-public-export-plus/ExportImages.json"), true);
-    if (isset($ExportImages[$path]))
-    {
-        $entry = $ExportImages[$path];
-        if (!empty($entry["forumName"]))
-        {
-            http_response_code(302);
-            header("Location: https://media.invisioncic.com/Mwarframe/pages_media/" . $entry["forumName"] . ".png");
-            exit;
-        }
-        else if (!empty($entry["contentHash"]))
-        {
-            http_response_code(302);
-            header("Location: https://content.warframe.com/PublicExport" . $path . "!" . $entry["contentHash"]);
-            exit;
-        }
-    }
-    // No entry found — nothing we can do.
-    exit;
-}
-
-"""
-
-# Insert right after the /Lotus/ guard block (after the closing brace of the "exit;" block)
-insert_after = "}\n\nfunction finishWithData"
-content = content.replace(insert_after, "}\n" + image_handler + "\nfunction finishWithData", 1)
-
-with open("/var/www/html/404.php", "w") as f:
-    f.write(content)
-
-print("404.php patched successfully")
-PYEOF
 
 # ── Apache virtual-host ───────────────────────────────────────────────────────
 # FollowSymLinks is required by Apache whenever mod_rewrite is active — it's a

@@ -18,6 +18,34 @@ if (substr($path, 0, 7) != "/Lotus/")
 	exit;
 }
 
+// Image proxy: redirect /Lotus/*.png and /Lotus/*.jpg to the Warframe CDN.
+// Several JS paths do a direct img.src = icon assignment without going through
+// setImageSource/ExportImages, so those requests land here as real HTTP requests.
+$img_ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+if ($img_ext === "png" || $img_ext === "jpg")
+{
+    $ExportImages = json_decode(file_get_contents("warframe-public-export-plus/ExportImages.json"), true);
+    if (isset($ExportImages[$path]))
+    {
+        $entry = $ExportImages[$path];
+        if (!empty($entry["forumName"]))
+        {
+            http_response_code(302);
+            header("Location: https://media.invisioncic.com/Mwarframe/pages_media/" . $entry["forumName"] . ".png");
+            exit;
+        }
+        else if (!empty($entry["contentHash"]))
+        {
+            http_response_code(302);
+            header("Location: https://content.warframe.com/PublicExport" . $path . "!" . $entry["contentHash"]);
+            exit;
+        }
+    }
+    // No entry found — nothing we can do.
+    exit;
+}
+
+
 function finishWithData($data)
 {
 	http_response_code(200);

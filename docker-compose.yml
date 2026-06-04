@@ -10,6 +10,10 @@ services:
     restart: unless-stopped
     ports:
       - "9092:80"
+    # Persist user accounts and notification configs across container restarts.
+    # Remove or comment out if you don't need persistence.
+    volumes:
+      - browse-wf-data:/var/www/html/data
     # Optional: mount a local copy of the source for development (comment out for production)
     # volumes:
     #   - .:/var/www/html
@@ -19,3 +23,6 @@ services:
     #  timeout: 10s
     #  retries: 3
     #  start_period: 10s
+
+volumes:
+  browse-wf-data:

@@ -96,6 +96,10 @@ ServerName localhost
 </VirtualHost>
 EOF
 
+# Create writable data directory for user accounts and notification configs.
+# The subsequent chown covers ownership for data/ as well.
+RUN mkdir -p /var/www/html/data
+
 # Fix file ownership so Apache can read everything
 RUN chown -R www-data:www-data /var/www/html
 

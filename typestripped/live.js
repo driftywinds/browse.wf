@@ -103,6 +103,7 @@ function updateDayNightCycle() {
         setTimeout(function () {
             if (localStorage.getItem("live.notif.nightfall")) {
                 sendNotification("The sun sets in 30 seconds.");
+                sendServerEvent("nightfall", "browse.wf", "The sun sets in 30 seconds.");
             }
         }, notifyAt - Date.now());
     }
@@ -156,6 +157,7 @@ function updateBountyCycle() {
     fetch("https://oracle.browse.wf/bounty-cycle").then(res => res.json()).then(async (bountyCycle) => {
         if (window.bountyCycle && window.bountyCycle.expiry != bountyCycle.expiry && localStorage.getItem("live.notif.bounties")) {
             sendNotification("New bounties are available.");
+            sendServerEvent("bounties", "browse.wf", "New bounties are available.");
         }
         const stale = window.bountyCycle && window.bountyCycle.expiry == bountyCycle.expiry;
         window.bountyCycle = bountyCycle;
@@ -190,6 +192,11 @@ async function updateArbyLocalised() {
     document.getElementById("arby-what").textContent = toTitleCase(dict[window.arby_node.missionName]) + " - " + dict[ExportFactions[window.arby_node.faction].name];
     document.getElementById("arby-where").textContent = "@ " + dict[window.arby_node.name] + ", " + dict[window.arby_node.systemName];
 }
+function getMissionTypeFromNode(node) {
+    const path = node.missionName;
+    const match = path?.match(/MissionName_(.+)$/);
+    return match ? match[1] : "";
+}
 function updateArby() {
     // dicts are guaranteed available here
     const currentHour = Math.trunc(Date.now() / 3600000) * 3600;
@@ -198,6 +205,15 @@ function updateArby() {
     const arr = window.arbys[currentHourIndex];
     window.arby_node = ExportRegions[arr[1]];
     window.arby_expiry = (currentHour + 3600) * 1000;
+    // Detect arby change for granular notifications
+    if (window.last_arby_node_id && window.last_arby_node_id != arr[1]) {
+        const missionType = getMissionTypeFromNode(window.arby_node);
+        const nodeName = dict[window.arby_node.name] || window.arby_node.name;
+        sendServerEvent("arby", "browse.wf Arbitration", "New arbitration: " + toTitleCase(dict[window.arby_node.missionName]) + " @ " + nodeName, {
+            mission_type: missionType
+        });
+    }
+    window.last_arby_node_id = arr[1];
     updateArbyLocalised();
     document.getElementById("arby-tier").textContent = arbyTiers[arr[1]] ?? "F";
     setTimeout(updateArby, window.arby_expiry - Date.now());
@@ -253,7 +269,9 @@ function updateWeekly() {
             weekly_notifications_subscribed_to.push("Temporal Archimedea");
         }
         if (weekly_notifications_subscribed_to.length != 0) {
-            sendNotification("It's a new week. " + weekly_notifications_subscribed_to.join(", ") + " refreshed.");
+            const msg = "It's a new week. " + weekly_notifications_subscribed_to.join(", ") + " refreshed.";
+            sendNotification(msg);
+            sendServerEvent("weekly", "browse.wf", msg);
         }
     }
     window.refresh_weekly_at = weekEnd;
@@ -302,6 +320,7 @@ function updateNewsTicker() {
         for (let i = items.length; i-- != 0;) {
             if (items[i].time > window.news_notify_after) {
                 sendNotification(items[i].data);
+                sendServerEvent("news", "browse.wf News", items[i].data);
             }
         }
     }
@@ -485,6 +504,7 @@ async function updateSorties() {
     document.getElementById("sortie-table").appendChild(tbody);
     if (window.last_sortie && window.last_sortie != sortie._id.$oid && localStorage.getItem("live.notif.sortie")) {
         sendNotification("A new sortie is available.");
+        sendServerEvent("sortie", "browse.wf", "A new sortie is available.");
     }
     window.last_sortie = sortie._id.$oid;
     const litesortie = window.worldState.LiteSorties.find(x => Date.now() >= parseInt(x.Activation.$date.$numberLong) && Date.now() < parseInt(x.Expiry.$date.$numberLong));
@@ -525,7 +545,9 @@ async function updateDarvosDeal() {
     if (window.last_darvo_deal
         && window.last_darvo_deal != window.dailyDeal.Activation.$date.$numberLong
         && localStorage.getItem("live.notif.darvo")) {
-        sendNotification("Darvo sells " + dict[item_data.name] + " for " + window.dailyDeal.SalePrice + " Platinum today.");
+        const msg = "Darvo sells " + dict[item_data.name] + " for " + window.dailyDeal.SalePrice + " Platinum today.";
+        sendNotification(msg);
+        sendServerEvent("darvo", "browse.wf Darvo's Deal", msg);
     }
     window.last_darvo_deal = window.dailyDeal.Activation.$date.$numberLong;
 }
@@ -583,7 +605,9 @@ async function updateBaro() {
         if (window.last_baro_expiry
             && window.last_baro_expiry != window.worldState.VoidTraders[0].Expiry.$date.$numberLong
             && localStorage.getItem("live.notif.baro")) {
-            sendNotification("Baro Ki'Teer has arrived at " + document.querySelector(".baro-where").textContent + ".");
+            const msg = "Baro Ki'Teer has arrived at " + document.querySelector(".baro-where").textContent + ".";
+            sendNotification(msg);
+            sendServerEvent("baro", "browse.wf Baro Ki'Teer", msg);
         }
         window.last_baro_expiry = window.worldState.VoidTraders[0].Expiry.$date.$numberLong;
     }
@@ -666,7 +690,9 @@ async function updateAlerts() {
     }
     if ("last_alert_count" in window && window.worldState.Alerts.length > window.last_alert_count && localStorage.getItem("live.notif.alerts")) {
         const diff = (window.worldState.Alerts.length - window.last_alert_count);
-        sendNotification(diff == 1 ? "A new alert is live." : diff + " new alerts are live.");
+        const msg = diff == 1 ? "A new alert is live." : diff + " new alerts are live.";
+        sendNotification(msg);
+        sendServerEvent("alert", "browse.wf Alerts", msg);
     }
     window.last_alert_count = window.worldState.Alerts.length;
 }
@@ -957,6 +983,26 @@ async function updateFissures() {
         });
     }
     fissures.sort((a, b) => a.Modifier.charCodeAt(5) - b.Modifier.charCodeAt(5));
+    // Detect new fissures for granular notifications
+    const currentKeys = new Set(fissures.map(f => f.Node + "|" + f.Modifier));
+    if (window.known_fissure_keys && window.known_fissure_keys.size > 0) {
+        for (const fissure of fissures) {
+            const key = fissure.Node + "|" + fissure.Modifier;
+            if (!window.known_fissure_keys.has(key) && Date.now() < fissure.Expiry.$date.$numberLong) {
+                const node = ExportRegions[fissure.Node];
+                if (node) {
+                    const missionType = getMissionTypeFromNode(node);
+                    const tier = fissure.Modifier;
+                    const nodeName = dict[node.name] || node.name;
+                    sendServerEvent("fissure", "browse.wf Fissure", "New " + (fissureTiers[tier] ?? tier) + " fissure: " + toTitleCase(dict[node.missionName]) + " @ " + nodeName, {
+                        mission_type: missionType,
+                        tier: tier,
+                    });
+                }
+            }
+        }
+    }
+    window.known_fissure_keys = currentKeys;
     window.num_fissures = 0;
     const tbody = {
         "fissures": document.createElement("tbody"),
@@ -1259,6 +1305,32 @@ function sendNotification(text) {
     new window.bootstrap.Toast(document.querySelector(".toast-container").appendChild(toast)).show();
     if (Notification.permission == "granted") {
         new Notification(text);
+    }
+}
+/**
+ * Send a notification event to the server for Apprise delivery.
+ * The server will check the user's subscription config and send if applicable.
+ */
+async function sendServerEvent(eventType, title, body, details) {
+    try {
+        const payload = {
+            event_type: eventType,
+            title: title,
+            body: body,
+        };
+        if (details) {
+            for (const [key, value] of Object.entries(details)) {
+                payload[key] = value;
+            }
+        }
+        await fetch("/api/notifications.php?action=send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+    }
+    catch (e) {
+        console.error("Failed to send server notification:", e);
     }
 }
 function refreshNotifStatus(elm) {

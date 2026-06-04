@@ -1,0 +1,1 @@
+This fork has Apprise notification support with basic authentication and admin controls for the site

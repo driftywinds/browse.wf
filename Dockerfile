@@ -60,11 +60,11 @@ ServerName localhost
 
         RewriteEngine On
 
-        # Protect the notif/ directory — deny direct web access to PHP includes
+        # Protect notif/ internals — only allow the explicit API routes above
         RewriteRule ^notif/db\.php$ - [F,L]
 
-        # Route /notif/save and /notif/test to their PHP files
-        RewriteRule ^notif/(save|test)$ notif/$1.php [L]
+        # Route /notif/* API calls to their PHP files
+        RewriteRule ^notif/(save|test|status)$ notif/$1.php [L]
 
         # Clean URLs: skip if the path is already a real file or directory
         RewriteCond %{REQUEST_FILENAME} !-f

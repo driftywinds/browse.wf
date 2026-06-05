@@ -127,8 +127,11 @@ function dispatch(array $cfg, string $title, string $body): void {
     $result = send_apprise($cfg['apprise_server'], $cfg['endpoints'], $title, $body);
     if ($result['ok']) {
         log_msg("  → [{$cfg['username']}] sent: $title | $body");
+        log_dispatch((int)$cfg['id'], $title, $body, true);
     } else {
-        log_msg("  → [{$cfg['username']}] FAILED: " . ($result['error'] ?? 'HTTP '.$result['status']));
+        $err = $result['error'] ?? ('HTTP ' . ($result['status'] ?? '?'));
+        log_msg("  → [{$cfg['username']}] FAILED: $err");
+        log_dispatch((int)$cfg['id'], $title, $body, false, $err);
     }
 }
 
@@ -426,18 +429,23 @@ while (true) {
     log_msg('Polling worldState (' . count($configs) . ' active user(s))…');
     $ws_raw = http_get('https://oracle.browse.wf/worldState.json');
     if (!$ws_raw) {
-        log_msg('worldState fetch failed, will retry.');
+        $err_msg = 'worldState fetch failed at ' . date('Y-m-d H:i:s');
+        log_msg($err_msg . ', will retry.');
+        daemon_set_error($err_msg);
         sleep($POLL_INTERVAL);
         continue;
     }
 
     $ws = json_decode($ws_raw, true);
     if (!$ws) {
-        log_msg('worldState JSON decode failed.');
+        $err_msg = 'worldState JSON decode failed at ' . date('Y-m-d H:i:s');
+        log_msg($err_msg);
+        daemon_set_error($err_msg);
         sleep($POLL_INTERVAL);
         continue;
     }
 
+    daemon_heartbeat();
     log_msg('Checking events…');
     check_sortie($ws, $configs);
     check_archon_hunt($ws, $configs);

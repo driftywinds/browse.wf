@@ -13,6 +13,8 @@
  *                  fissure_filters (JSON), sp_fissure_filters (JSON),
  *                  arby_filters (JSON array of strings)
  *   notif_state    key, value  — tracks last-seen IDs so the daemon doesn't double-fire
+ *   notif_log      per-user dispatch history (title, body, ok/fail, ts)
+ *   daemon_status   singleton row: last_poll, last_error
  */
 
 define('NOTIF_DB_PATH', getenv('NOTIF_DB_PATH') ?: '/data/wf-notify.db');
@@ -57,6 +59,24 @@ function get_db(): PDO {
         key   TEXT PRIMARY KEY,
         value TEXT NOT NULL
     )");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS notif_log (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        ts         INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+        title      TEXT    NOT NULL,
+        body       TEXT    NOT NULL,
+        ok         INTEGER NOT NULL DEFAULT 1,
+        error_msg  TEXT    NOT NULL DEFAULT ''
+    )");
+    $pdo->exec("CREATE INDEX IF NOT EXISTS notif_log_user_ts ON notif_log(user_id, ts DESC)");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS daemon_status (
+        id         INTEGER PRIMARY KEY CHECK (id = 1),
+        last_poll  INTEGER NOT NULL DEFAULT 0,
+        last_error TEXT    NOT NULL DEFAULT ''
+    )");
+    $pdo->exec("INSERT OR IGNORE INTO daemon_status (id, last_poll) VALUES (1, 0)");
 
     return $pdo;
 }
@@ -220,4 +240,43 @@ function get_state(string $key): ?string {
 
 function set_state(string $key, string $value): void {
     get_db()->prepare('INSERT OR REPLACE INTO notif_state (key, value) VALUES (?,?)')->execute([$key, $value]);
+}
+
+// ── Daemon status helpers (written by notifyd, read by status API) ───────────
+function daemon_heartbeat(): void {
+    get_db()->prepare(
+        'UPDATE daemon_status SET last_poll = strftime('%s','now'), last_error = '' WHERE id = 1'
+    )->execute();
+}
+
+function daemon_set_error(string $msg): void {
+    get_db()->prepare(
+        'UPDATE daemon_status SET last_error = ? WHERE id = 1'
+    )->execute([$msg]);
+}
+
+function daemon_get_status(): array {
+    $row = get_db()->query('SELECT last_poll, last_error FROM daemon_status WHERE id = 1')->fetch();
+    return $row ?: ['last_poll' => 0, 'last_error' => 'No status yet'];
+}
+
+// ── Notification log helpers ──────────────────────────────────────────────────
+function log_dispatch(int $user_id, string $title, string $body, bool $ok, string $error_msg = ''): void {
+    get_db()->prepare(
+        'INSERT INTO notif_log (user_id, title, body, ok, error_msg) VALUES (?,?,?,?,?)'
+    )->execute([$user_id, $title, $body, $ok ? 1 : 0, $error_msg]);
+    // Keep last 100 entries per user
+    get_db()->prepare(
+        'DELETE FROM notif_log WHERE user_id = ? AND id NOT IN
+         (SELECT id FROM notif_log WHERE user_id = ? ORDER BY ts DESC LIMIT 100)'
+    )->execute([$user_id, $user_id]);
+}
+
+function get_user_log(int $user_id, int $limit = 20): array {
+    $st = get_db()->prepare(
+        'SELECT ts, title, body, ok, error_msg FROM notif_log
+         WHERE user_id = ? ORDER BY ts DESC LIMIT ?'
+    );
+    $st->execute([$user_id, $limit]);
+    return $st->fetchAll();
 }

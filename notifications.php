@@ -43,6 +43,29 @@ $is_admin = (bool)$user['is_admin'];
 			polls the world state every 60 s and dispatches notifications — no browser tab needed.
 		</p>
 
+		<!-- ── Daemon Status ─────────────────────────────────────────────── -->
+		<div class="card mb-4" id="status-card">
+			<div class="card-header d-flex align-items-center gap-2">
+				<h5 class="mb-0">Daemon Status</h5>
+				<span id="status-dot" class="ms-1" style="width:10px;height:10px;border-radius:50%;display:inline-block;background:var(--bs-secondary)"></span>
+				<span id="status-label" class="text-secondary" style="font-size:.85rem">Loading…</span>
+				<button class="btn btn-sm btn-outline-secondary ms-auto py-0" id="refresh-status-btn" type="button" style="font-size:.78rem">↻ Refresh</button>
+			</div>
+			<div class="card-body p-0">
+				<div id="status-error" class="d-none alert alert-danger mb-0 rounded-0 rounded-bottom py-2 px-3" style="font-size:.85rem"></div>
+				<div id="status-log-wrap" class="d-none">
+					<div class="px-3 pt-2 pb-1" style="font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--bs-secondary-color)">Recent notifications sent to you</div>
+					<div style="overflow-x:auto">
+					<table class="table table-sm table-hover mb-0" style="font-size:.82rem">
+						<thead><tr><th style="white-space:nowrap">Time</th><th>Event</th><th>Message</th><th>Result</th></tr></thead>
+						<tbody id="status-log-tbody"></tbody>
+					</table>
+					</div>
+					<div id="status-log-empty" class="d-none text-secondary px-3 py-2" style="font-size:.85rem">No notifications sent yet for your current config.</div>
+				</div>
+			</div>
+		</div>
+
 		<!-- ── 1. Apprise server ──────────────────────────────────────────── -->
 		<div class="card mb-4">
 			<div class="card-header"><h5 class="mb-0">1 · Apprise Server</h5></div>
@@ -301,6 +324,79 @@ $is_admin = (bool)$user['is_admin'];
 			el.textContent = "✗ " + e.message;
 		}
 	});
+	// ── Daemon status ─────────────────────────────────────────────────────────
+	function fmtTime(ts) {
+		if (!ts) return '—';
+		const d = new Date(ts * 1000);
+		return d.toLocaleDateString(undefined, {month:'short', day:'numeric'})
+		       + ' ' + d.toLocaleTimeString(undefined, {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+	}
+	function fmtAge(age_s) {
+		if (age_s < 0) return 'never';
+		if (age_s < 90) return age_s + 's ago';
+		if (age_s < 3600) return Math.round(age_s/60) + 'm ago';
+		return Math.round(age_s/3600) + 'h ago';
+	}
+
+	async function refreshStatus() {
+		try {
+			const res  = await fetch('/notif/status', { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+			const data = await res.json();
+
+			const dot   = document.getElementById('status-dot');
+			const label = document.getElementById('status-label');
+			const errEl = document.getElementById('status-error');
+
+			// Daemon heartbeat
+			if (data.daemon.ok) {
+				dot.style.background = 'var(--bs-success)';
+				label.textContent = 'Running · last poll ' + fmtAge(data.daemon.age_s);
+				label.className = 'text-success';
+				errEl.classList.add('d-none');
+			} else {
+				dot.style.background = 'var(--bs-danger)';
+				const never = data.daemon.last_poll === 0;
+				label.textContent = never ? 'Daemon has not polled yet' : 'No poll for ' + fmtAge(data.daemon.age_s) + ' — daemon may be down';
+				label.className = 'text-danger';
+				if (data.daemon.last_error) {
+					errEl.textContent = '⚠ ' + data.daemon.last_error;
+					errEl.classList.remove('d-none');
+				}
+			}
+
+			// Log
+			const wrap  = document.getElementById('status-log-wrap');
+			const tbody = document.getElementById('status-log-tbody');
+			const empty = document.getElementById('status-log-empty');
+			wrap.classList.remove('d-none');
+			tbody.innerHTML = '';
+			if (data.log.length === 0) {
+				empty.classList.remove('d-none');
+			} else {
+				empty.classList.add('d-none');
+				for (const row of data.log) {
+					const tr = document.createElement('tr');
+					const eventShort = row.title.replace('browse.wf · ', '');
+					tr.innerHTML = `
+						<td style="white-space:nowrap;color:var(--bs-secondary-color)">${fmtTime(row.ts)}</td>
+						<td style="white-space:nowrap"><strong>${eventShort}</strong></td>
+						<td>${row.body}</td>
+						<td style="white-space:nowrap">${row.ok
+							? '<span class="badge bg-success">sent</span>'
+							: '<span class="badge bg-danger" title="' + row.error_msg + '">failed</span>'
+						}</td>`;
+					tbody.appendChild(tr);
+				}
+			}
+		} catch(e) {
+			document.getElementById('status-label').textContent = 'Could not load status';
+			document.getElementById('status-label').className = 'text-secondary';
+		}
+	}
+
+	refreshStatus();
+	document.getElementById('refresh-status-btn').addEventListener('click', refreshStatus);
+	setInterval(refreshStatus, 30_000);
 	</script>
 </body>
 </html>

@@ -245,7 +245,7 @@ function set_state(string $key, string $value): void {
 // ── Daemon status helpers (written by notifyd, read by status API) ───────────
 function daemon_heartbeat(): void {
     get_db()->prepare(
-        'UPDATE daemon_status SET last_poll = strftime('%s','now'), last_error = '' WHERE id = 1'
+        "UPDATE daemon_status SET last_poll = strftime('%s','now'), last_error = '' WHERE id = 1"
     )->execute();
 }
 

@@ -123,7 +123,9 @@ RUN mkdir -p /data && chown www-data:www-data /data
 # Fix file ownership so Apache + notifyd can read everything
 RUN chown -R www-data:www-data /var/www/html
 
+# Entrypoint fixes /data ownership at runtime (host volume mounts can reset it)
+RUN chmod +x /var/www/html/docker-entrypoint.sh
+
 EXPOSE 80
 
-# Replace the default apache2 entrypoint with supervisord
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
+CMD ["/var/www/html/docker-entrypoint.sh"]

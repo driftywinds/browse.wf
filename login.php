@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 header('Location: /notifications');
                 exit;
             } catch (Exception $e) {
-                $error = 'Username already taken.';
+                $error = $e->getMessage();
             }
         }
     } else {

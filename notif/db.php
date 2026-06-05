@@ -121,9 +121,15 @@ function create_user(string $username, string $password, bool $is_admin = false)
     $db   = get_db();
     $hash = password_hash($password, PASSWORD_BCRYPT);
     $st   = $db->prepare('INSERT INTO users (username, password_hash, is_admin) VALUES (?,?,?)');
-    $st->execute([$username, $hash, $is_admin ? 1 : 0]);
+    try {
+        $st->execute([$username, $hash, $is_admin ? 1 : 0]);
+    } catch (PDOException $e) {
+        if ($e->getCode() === '23000' || strpos($e->getMessage(), 'UNIQUE') !== false) {
+            throw new RuntimeException('Username already taken.');
+        }
+        throw $e;
+    }
     $uid = (int) $db->lastInsertId();
-    // Create empty config row
     $db->prepare('INSERT OR IGNORE INTO notif_config (user_id) VALUES (?)')->execute([$uid]);
     return $uid;
 }

@@ -308,7 +308,7 @@ function check_fissures(array $ws, array $configs): void {
     $new_seen = [];
 
     $all_fissures = array_merge(
-        array_map(fn($f) => array_merge($f, ['_cat' => $f['Hard'] ? 'sp' : 'normal']),
+        array_map(fn($f) => array_merge($f, ['_cat' => ($f['Hard'] ?? false) ? 'sp' : 'normal']),
                   $ws['ActiveMissions'] ?? []),
         array_map(fn($f) => array_merge($f, ['_cat' => 'rj', 'Modifier' => $f['ActiveMissionTier'] ?? '']),
                   $ws['VoidStorms']     ?? [])

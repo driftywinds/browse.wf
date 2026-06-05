@@ -1,24 +1,5 @@
 <?php
 $ext = substr($_SERVER["SERVER_SOFTWARE"] ?? "", 0, 3) == "PHP" ? ".php" : "";
-
-// Session-based auth check for navbar
-$loggedInUser = null;
-$isAdmin = false;
-if (session_status() === PHP_SESSION_NONE) {
-	session_start();
-}
-if (isset($_SESSION["user_id"])) {
-	$usersDb = json_decode(@file_get_contents(__DIR__ . "/../data/users.json"), true);
-	if ($usersDb) {
-		foreach ($usersDb["users"] as $u) {
-			if ($u["id"] === $_SESSION["user_id"]) {
-				$loggedInUser = $u["username"];
-				$isAdmin = $u["is_admin"];
-				break;
-			}
-		}
-	}
-}
 ?>
 <nav class="navbar fixed-top navbar-expand-lg bg-body-tertiary">
 	<div class="container-fluid">
@@ -50,7 +31,7 @@ if (isset($_SESSION["user_id"])) {
 						<li><a class="dropdown-item<?=(substr($_SERVER["REQUEST_URI"], 0, 14) == "/invigorations" ? " active" : ""); ?>" href="/invigorations<?=$ext;?>">Invigorations</a></li>
 					</ul>
 				</li>
-				<a class="nav-link<?=(substr($_SERVER["REQUEST_URI"], 0, 14) == "/notifications" ? " active" : ""); ?>" href="/notifications<?=$ext;?>">Notifications</a>
+				<a class="nav-link<?=(substr($_SERVER["REQUEST_URI"], 0, 14) == "/notifications" ? " active" : ""); ?>" href="/notifications<?=$ext;?>">🔔 Notifications</a>
 				<a class="nav-link<?=(substr($_SERVER["REQUEST_URI"], 0, 6) == "/about" ? " active" : ""); ?>" href="/about<?=$ext;?>">About</a>
 			</div>
 			<div class="nav-item dropdown mb-2 mb-lg-0">
@@ -73,23 +54,6 @@ if (isset($_SESSION["user_id"])) {
 					<li><a class="dropdown-item" href="#" data-lang="th" onclick="event.preventDefault();setLanguage('th');">แบบไทย</a></li>
 				</ul>
 			</div>
-			<?php if ($loggedInUser): ?>
-			<div class="nav-item dropdown mb-2 mb-lg-0">
-				<a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false"><?=htmlspecialchars($loggedInUser)?></a>
-				<ul class="dropdown-menu dropdown-menu-end">
-					<li><a class="dropdown-item" href="/notifications<?=$ext;?>">Notification Settings</a></li>
-					<?php if ($isAdmin): ?>
-					<li><a class="dropdown-item" href="/admin<?=$ext;?>">Admin Panel</a></li>
-					<?php endif; ?>
-					<li><hr class="dropdown-divider"></li>
-					<li><a class="dropdown-item" href="#" onclick="event.preventDefault();fetch('/api/auth.php?action=logout',{method:'POST'}).then(()=>location.reload());">Log Out</a></li>
-				</ul>
-			</div>
-			<?php else: ?>
-			<div class="nav-item mb-2 mb-lg-0">
-				<a class="nav-link" href="/notifications<?=$ext;?>">Log In</a>
-			</div>
-			<?php endif; ?>
 		</div>
 	</div>
 </nav>

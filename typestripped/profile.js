@@ -68,7 +68,7 @@ function makeSyndicateLogoElement(syndicate) {
     div.style.backgroundColor /* [sic] */ = peColourToHex(syndicate.backgroundColour);
     {
         const img = document.createElement("img");
-        img.src = syndicate.icon;
+        img.src = "https://browse.wf" + syndicate.icon;
         img.style.filter = makeColourFilter(syndicate.colour);
         div.appendChild(img);
     }
@@ -77,17 +77,17 @@ function makeSyndicateLogoElement(syndicate) {
 const params = new URLSearchParams(location.hash.replace("#", ""));
 Promise.all([
     getDictPromise(),
-    fetch("/warframe-public-export-plus/ExportAchievements.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportCustoms.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportEnemies.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportFactions.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportFlavour.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportNightwave.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportRegions.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportSentinels.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportSyndicates.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportWarframes.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportWeapons.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportAchievements.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportCustoms.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportEnemies.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportFactions.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportFlavour.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportNightwave.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportRegions.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportSentinels.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportSyndicates.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportWarframes.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportWeapons.json").then(res => res.json()),
     fetch("supplemental-data/profile-[DE]Rebecca.json").then(res => res.json())
 ]).then(([dict, ExportAchievements, ExportCustoms, ExportEnemies, ExportFactions, ExportFlavour, ExportNightwave, ExportRegions, ExportSentinels, ExportSyndicates, ExportWarframes, ExportWeapons, profile]) => {
     window.dict = dict;
@@ -286,7 +286,7 @@ function renderProfile() {
                         {
                             const img = document.createElement("img");
                             img.className = "img-fluid rounded-start";
-                            img.src = achievement.icon;
+                            img.src = "https://browse.wf" + achievement.icon;
                             div.appendChild(img);
                         }
                         row.appendChild(div);
@@ -562,7 +562,7 @@ function displaySkin(category, i, value) {
                 {
                     a.textContent = dict[ExportCustoms[value].name] ?? ExportCustoms[value].name ?? value;
                 }
-                a.href = ExportCustoms[value].icon;
+                a.href = "https://browse.wf" + ExportCustoms[value].icon;
                 a.target = "_blank";
                 elm.querySelector("span").innerHTML = "";
                 elm.querySelector("span").appendChild(a);

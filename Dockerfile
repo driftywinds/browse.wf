@@ -7,34 +7,21 @@ FROM php:8.3-apache
 # Enable Apache mod_rewrite for clean URLs
 RUN a2enmod rewrite
 
-# ── Fetch warframe-public-export-plus JSON data via npm ──────────────────────
-# Install Node.js, pull just the one package we need by name (not npm ci),
-# copy its data directory into the web root as a plain real directory, then
-# remove Node.js and node_modules — neither is needed at runtime.
-#
-# Why `npm install <pkg>` and not `npm ci --omit=dev`?
-# warframe-public-export-plus is a devDependency in package.json so --omit=dev
-# skips it entirely. Installing by name fetches it regardless of category.
-#
-# Why copy instead of symlink?
-# Apache requires FollowSymLinks for mod_rewrite to work, but also blocks
-# symlinks that resolve outside the docroot unless explicitly permitted in a
-# matching <Directory> block. Copying avoids all of that cleanly.
+# ── System deps ───────────────────────────────────────────────────────────────
+# nodejs   — used at build time only to pull warframe-public-export-plus
+# supervisor — runs Apache + notifyd daemon side-by-side at runtime
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
+    && apt-get install -y nodejs supervisor \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Enable PHP extensions needed at runtime
+RUN docker-php-ext-install curl pdo pdo_sqlite
 
 # Copy source files
 COPY . /var/www/html/
 
 # Overwrite 404.php with our pre-patched version that adds an image proxy handler.
-# The compiled JS has raw `img.src = icon` assignments in live.js (Darvo deal),
-# index.js (syndicate icons), and profile.js (achievement icons) that bypass
-# setImageSource/ExportImages. After our sed strips the browse.wf origin those
-# become relative /Lotus/*.png requests hitting our server. The patched 404.php
-# catches .png/.jpg paths, looks them up in ExportImages.json, and issues a 302
-# redirect to content.warframe.com (or media.invisioncic.com) with the content hash.
 COPY 404.php /var/www/html/404.php
 
 WORKDIR /var/www/html
@@ -47,9 +34,6 @@ RUN npm install warframe-public-export-plus \
     && rm -rf /var/lib/apt/lists/*
 
 # ── Patch hardcoded origin ────────────────────────────────────────────────────
-# The compiled JS fetches from https://browse.wf/warframe-public-export-plus/...
-# Strip the origin so all fetches become relative (/warframe-public-export-plus/...).
-# oracle.browse.wf is left as-is — it's the live Warframe world-state service.
 RUN sed -i 's|https://browse\.wf||g' \
         /var/www/html/common.js \
         /var/www/html/typestripped/index.js \
@@ -59,10 +43,6 @@ RUN sed -i 's|https://browse\.wf||g' \
         /var/www/html/typestripped/prime-vault.js
 
 # ── Apache virtual-host ───────────────────────────────────────────────────────
-# FollowSymLinks is required by Apache whenever mod_rewrite is active — it's a
-# hard security requirement in Apache itself (see AH00670). There are no actual
-# symlinks in the image (we copied warframe-public-export-plus as a real dir)
-# so enabling it here carries no real risk.
 RUN cat > /etc/apache2/sites-available/000-default.conf <<'EOF'
 ServerName localhost
 
@@ -76,12 +56,19 @@ ServerName localhost
 
         RewriteEngine On
 
+        # Protect the notif/ directory — deny direct web access to PHP includes
+        RewriteRule ^notif/db\.php$ - [F,L]
+
+        # Route /notif/save and /notif/test to their PHP files
+        RewriteRule ^notif/(save|test)$ notif/$1.php [L]
+
         # Clean URLs: skip if the path is already a real file or directory
         RewriteCond %{REQUEST_FILENAME} !-f
         RewriteCond %{REQUEST_FILENAME} !-d
         RewriteCond %{REQUEST_URI} !^/warframe-public-export-plus/
         RewriteCond %{REQUEST_URI} !^/supplemental-data/
         RewriteCond %{REQUEST_URI} !^/typestripped/
+        RewriteCond %{REQUEST_URI} !^/notif/
         RewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI}.php -f
         RewriteRule ^(.+)$ $1.php [L]
 
@@ -96,11 +83,43 @@ ServerName localhost
 </VirtualHost>
 EOF
 
-# Create writable data directory for user accounts and notification configs.
-# The subsequent chown covers ownership for data/ as well.
-RUN mkdir -p /var/www/html/data
+# ── supervisord config ────────────────────────────────────────────────────────
+# Runs Apache and the notification daemon together in one container.
+# notifyd logs go to stdout so `docker logs` shows them.
+RUN cat > /etc/supervisor/conf.d/browse-wf.conf <<'EOF'
+[supervisord]
+nodaemon=true
+logfile=/dev/null
+logfile_maxbytes=0
 
-# Fix file ownership so Apache can read everything
+[program:apache2]
+command=/usr/sbin/apache2ctl -D FOREGROUND
+autostart=true
+autorestart=true
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
+
+[program:notifyd]
+command=php /var/www/html/notifyd.php
+autostart=true
+autorestart=true
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
+; Give Apache a couple seconds to start before the daemon tries localhost requests
+startsecs=3
+EOF
+
+# Ensure /data dir exists (will be overridden by a volume mount in production)
+RUN mkdir -p /data && chown www-data:www-data /data
+
+# Fix file ownership so Apache + notifyd can read everything
 RUN chown -R www-data:www-data /var/www/html
 
 EXPOSE 80
+
+# Replace the default apache2 entrypoint with supervisord
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]

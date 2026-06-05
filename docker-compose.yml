@@ -1,22 +1,19 @@
 services:
   browse-wf:
     #build:
-     # context: .
-      # Produces a multi-architecture image when using:
-      #   docker buildx build --platform linux/amd64,linux/arm64 --push -t yourrepo/browse-wf .
-      # For a plain local build, just run: docker compose up --build
+    #  context: .
+    #  # Multi-arch: docker buildx build --platform linux/amd64,linux/arm64 --push -t yourrepo/browse-wf .
+    #  # Plain local build: docker compose up --build
     image: ghcr.io/driftywinds/browse-wf:latest
     container_name: browse-wf
     restart: unless-stopped
     ports:
       - "9092:80"
-    # Persist user accounts and notification configs across container restarts.
-    # Remove or comment out if you don't need persistence.
     volumes:
-      - browse-wf-data:/var/www/html/data
-    # Optional: mount a local copy of the source for development (comment out for production)
-    # volumes:
-    #   - .:/var/www/html
+      # Persist the SQLite DB (user accounts + notification config + daemon state)
+      # across container restarts and image updates. Create this dir on the host first:
+      #   mkdir -p ./data && chown 33:33 ./data   (33 = www-data inside the container)
+      - ./data:/data
     #healthcheck:
     #  test: ["CMD", "curl", "-f", "http://localhost/"]
     #  interval: 30s
@@ -24,5 +21,22 @@ services:
     #  retries: 3
     #  start_period: 10s
 
-volumes:
-  browse-wf-data:
+  # ── Apprise notification server ───────────────────────────────────────────
+  # Set "Apprise Server URL" in the Notifications tab to: http://apprise:8000
+  # browse-wf reaches it over the internal Docker network — no host port needed.
+  #
+  # To enable: uncomment the block below, then: docker compose up -d
+  #
+  # apprise:
+  #   image: caronc/apprise:latest
+  #   container_name: apprise
+  #   restart: unless-stopped
+  #   # Expose Apprise web UI on host (optional):
+  #   # ports:
+  #   #   - "8000:8000"
+  #   # Persist Apprise server-side config (optional):
+  #   # volumes:
+  #   #   - apprise_config:/config
+
+# volumes:
+#   apprise_config:

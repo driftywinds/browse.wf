@@ -205,10 +205,10 @@ declare global {
 const dict_promise = getDictPromise();
 const osdict_promise = getOSDictPromise();
 const dicts_promise = Promise.all([ dict_promise, osdict_promise ]);
-const ExportRegions_promise = fetch("/warframe-public-export-plus/ExportRegions.json").then(res => res.json());
-const ExportChallenges_promise = fetch("/warframe-public-export-plus/ExportChallenges.json").then(res => res.json());
-const ExportMissionTypes_promise = fetch("/warframe-public-export-plus/ExportMissionTypes.json").then(res => res.json());
-const ExportFactions_promise = fetch("/warframe-public-export-plus/ExportFactions.json").then(res => res.json());
+const ExportRegions_promise = fetch("https://browse.wf/warframe-public-export-plus/ExportRegions.json").then(res => res.json());
+const ExportChallenges_promise = fetch("https://browse.wf/warframe-public-export-plus/ExportChallenges.json").then(res => res.json());
+const ExportMissionTypes_promise = fetch("https://browse.wf/warframe-public-export-plus/ExportMissionTypes.json").then(res => res.json());
+const ExportFactions_promise = fetch("https://browse.wf/warframe-public-export-plus/ExportFactions.json").then(res => res.json());
 
 dict_promise.then(dict => { (window as any).dict = dict; });
 osdict_promise.then(osdict => { (window as any).osdict = osdict; });
@@ -337,7 +337,6 @@ function updateDayNightCycle()
 			if (localStorage.getItem("live.notif.nightfall"))
 			{
 				sendNotification("The sun sets in 30 seconds.");
-				sendServerEvent("nightfall", "browse.wf", "The sun sets in 30 seconds.");
 			}
 		}, notifyAt - Date.now());
 	}
@@ -404,7 +403,6 @@ function updateBountyCycle()
 		if (window.bountyCycle && window.bountyCycle.expiry != bountyCycle.expiry && localStorage.getItem("live.notif.bounties"))
 		{
 			sendNotification("New bounties are available.");
-			sendServerEvent("bounties", "browse.wf", "New bounties are available.");
 		}
 		const stale = window.bountyCycle && window.bountyCycle.expiry == bountyCycle.expiry;
 		window.bountyCycle = bountyCycle;
@@ -446,13 +444,6 @@ async function updateArbyLocalised()
 	document.getElementById("arby-where").textContent = "@ " + dict[window.arby_node.name] + ", " + dict[window.arby_node.systemName];
 }
 
-function getMissionTypeFromNode(node: IRegion): string
-{
-	const path = node.missionName;
-	const match = path?.match(/MissionName_(.+)$/);
-	return match ? match[1] : "";
-}
-
 function updateArby()
 {
 	// dicts are guaranteed available here
@@ -463,18 +454,6 @@ function updateArby()
 	const arr = window.arbys[currentHourIndex];
 	window.arby_node = ExportRegions[arr[1]];
 	window.arby_expiry = (currentHour + 3600) * 1000;
-
-	// Detect arby change for granular notifications
-	if (window.last_arby_node_id && window.last_arby_node_id != arr[1])
-	{
-		const missionType = getMissionTypeFromNode(window.arby_node);
-		const nodeName = dict[window.arby_node.name] || window.arby_node.name;
-		sendServerEvent("arby", "browse.wf Arbitration", "New arbitration: " + toTitleCase(dict[window.arby_node.missionName]) + " @ " + nodeName, {
-			mission_type: missionType
-		});
-	}
-	window.last_arby_node_id = arr[1];
-
 	updateArbyLocalised();
 	document.getElementById("arby-tier").textContent = arbyTiers[arr[1]] ?? "F";
 	setTimeout(updateArby, window.arby_expiry - Date.now());
@@ -548,9 +527,7 @@ function updateWeekly()
 		}
 		if (weekly_notifications_subscribed_to.length != 0)
 		{
-			const msg = "It's a new week. " + weekly_notifications_subscribed_to.join(", ") + " refreshed.";
-			sendNotification(msg);
-			sendServerEvent("weekly", "browse.wf", msg);
+			sendNotification("It's a new week. " + weekly_notifications_subscribed_to.join(", ") + " refreshed.");
 		}
 	}
 	window.refresh_weekly_at = weekEnd;
@@ -605,17 +582,18 @@ function updateNewsTicker()
 			}
 		}
 	}
-	items.sort((a, b) => b.time - a.time);		if (window.news_notify_after && localStorage.getItem("live.notif.news"))
+	items.sort((a, b) => b.time - a.time);
+
+	if (window.news_notify_after && localStorage.getItem("live.notif.news"))
+	{
+		for (let i = items.length; i-- != 0; )
 		{
-			for (let i = items.length; i-- != 0; )
+			if (items[i].time > window.news_notify_after)
 			{
-				if (items[i].time > window.news_notify_after)
-				{
-					sendNotification(items[i].data);
-					sendServerEvent("news", "browse.wf News", items[i].data);
-				}
+				sendNotification(items[i].data);
 			}
 		}
+	}
 	if (window.worldState && window.redtext)
 	{
 		window.refresh_news_sources_at = Date.now() + 60_000;
@@ -843,7 +821,6 @@ async function updateSorties()
 	if (window.last_sortie && window.last_sortie != sortie._id.$oid && localStorage.getItem("live.notif.sortie"))
 	{
 		sendNotification("A new sortie is available.");
-		sendServerEvent("sortie", "browse.wf", "A new sortie is available.");
 	}
 	window.last_sortie = sortie._id.$oid;
 
@@ -883,7 +860,7 @@ async function updateDarvosDeal()
 	const item_data = await getItemDataPromise(window.dailyDeal.StoreItem);
 	await dicts_promise;
 	document.getElementById("darvo-item").textContent = dict[item_data.name];
-	(document.getElementById("darvo-icon") as HTMLImageElement).src = item_data.icon;
+	(document.getElementById("darvo-icon") as HTMLImageElement).src = "https://browse.wf" + item_data.icon;
 	document.getElementById("darvo-stock").textContent = (window.dailyDeal.AmountTotal - window.dailyDeal.AmountSold) + "/" + window.dailyDeal.AmountTotal;
 	document.getElementById("darvo-ogprice").textContent = window.dailyDeal.OriginalPrice.toString();
 	document.getElementById("darvo-price").textContent = window.dailyDeal.SalePrice.toString();
@@ -894,9 +871,7 @@ async function updateDarvosDeal()
 		&& localStorage.getItem("live.notif.darvo")
 		)
 	{
-		const msg = "Darvo sells " + dict[item_data.name] + " for " + window.dailyDeal.SalePrice + " Platinum today.";
-		sendNotification(msg);
-		sendServerEvent("darvo", "browse.wf Darvo's Deal", msg);
+		sendNotification("Darvo sells " + dict[item_data.name] + " for " + window.dailyDeal.SalePrice + " Platinum today.");
 	}
 	window.last_darvo_deal = window.dailyDeal.Activation.$date.$numberLong;
 }
@@ -970,9 +945,7 @@ async function updateBaro()
 			&& localStorage.getItem("live.notif.baro")
 			)
 		{
-			const msg = "Baro Ki'Teer has arrived at " + document.querySelector(".baro-where").textContent + ".";
-			sendNotification(msg);
-			sendServerEvent("baro", "browse.wf Baro Ki'Teer", msg);
+			sendNotification("Baro Ki'Teer has arrived at " + document.querySelector(".baro-where").textContent + ".");
 		}
 		window.last_baro_expiry = window.worldState.VoidTraders[0].Expiry.$date.$numberLong;
 	}
@@ -1077,9 +1050,7 @@ async function updateAlerts()
 	if ("last_alert_count" in window && window.worldState.Alerts.length > window.last_alert_count && localStorage.getItem("live.notif.alerts"))
 	{
 		const diff = (window.worldState.Alerts.length - window.last_alert_count);
-		const msg = diff == 1 ? "A new alert is live." : diff + " new alerts are live.";
-		sendNotification(msg);
-		sendServerEvent("alert", "browse.wf Alerts", msg);
+		sendNotification(diff == 1 ? "A new alert is live." : diff + " new alerts are live.");
 	}
 	window.last_alert_count = window.worldState.Alerts.length;
 }
@@ -1235,7 +1206,7 @@ function getItemDataPromise(uniqueName: string): Promise<any>
 	uniqueName = uniqueName.split("/Lotus/StoreItems/").join("/Lotus/");
 	if (!item_data_promises[uniqueName])
 	{
-		item_data_promises[uniqueName] = fetch(uniqueName).then(res => res.json());
+		item_data_promises[uniqueName] = fetch("https://browse.wf" + uniqueName).then(res => res.json());
 	}
 	return item_data_promises[uniqueName];
 }
@@ -1440,31 +1411,6 @@ async function updateFissures()
 		});
 	}
 	fissures.sort((a, b) => a.Modifier.charCodeAt(5) - b.Modifier.charCodeAt(5));
-
-	// Detect new fissures for granular notifications
-	const currentKeys = new Set(fissures.map(f => f.Node + "|" + f.Modifier));
-	if (window.known_fissure_keys && window.known_fissure_keys.size > 0)
-	{
-		for (const fissure of fissures)
-		{
-			const key = fissure.Node + "|" + fissure.Modifier;
-			if (!window.known_fissure_keys.has(key) && Date.now() < fissure.Expiry.$date.$numberLong)
-			{
-				const node = ExportRegions[fissure.Node];
-				if (node)
-				{
-					const missionType = getMissionTypeFromNode(node);
-					const tier = fissure.Modifier;
-					const nodeName = dict[node.name] || node.name;
-					sendServerEvent("fissure", "browse.wf Fissure", "New " + (fissureTiers[tier] ?? tier) + " fissure: " + toTitleCase(dict[node.missionName]) + " @ " + nodeName, {
-						mission_type: missionType,
-						tier: tier,
-					});
-				}
-			}
-		}
-	}
-	window.known_fissure_keys = currentKeys;
 
 	window.num_fissures = 0;
 	const tbody = {
@@ -1727,7 +1673,7 @@ dicts_promise.then(([dict, osdict]) =>
 	};
 
 	Promise.all([
-		fetch("/arbys.txt").then(res => res.text()),
+		fetch("https://browse.wf/arbys.txt").then(res => res.text()),
 		loadScriptPromise("supplemental-data/arbyTiers.js"),
 		ExportRegions_promise
 	]).then(([arbys]) =>
@@ -1736,7 +1682,7 @@ dicts_promise.then(([dict, osdict]) =>
 		updateArby();
 	});
 
-	fetch("/sp-incursions.txt").then(res => res.text()).then(async (incursions) => {
+	fetch("https://browse.wf/sp-incursions.txt").then(res => res.text()).then(async (incursions) => {
 		await ExportRegions_promise;
 		window.incursions = incursions.split("\n").map(line => line.split(";")).filter(arr => arr.length == 2).map(arr => [ parseInt(arr[0]), arr[1] ]);
 		updateIncursions();
@@ -1844,38 +1790,6 @@ function sendNotification(text: string): void
 	if (Notification.permission == "granted")
 	{
 		new Notification(text);
-	}
-}
-
-/**
- * Send a notification event to the server for Apprise delivery.
- * The server will check the user's subscription config and send if applicable.
- */
-async function sendServerEvent(eventType: string, title: string, body: string, details?: Record<string, string>): Promise<void>
-{
-	try
-	{
-		const payload: Record<string, any> = {
-			event_type: eventType,
-			title: title,
-			body: body,
-		};
-		if (details)
-		{
-			for (const [key, value] of Object.entries(details))
-			{
-				payload[key] = value;
-			}
-		}
-		await fetch("/api/notifications.php?action=send", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(payload),
-		});
-	}
-	catch (e)
-	{
-		console.error("Failed to send server notification:", e);
 	}
 }
 

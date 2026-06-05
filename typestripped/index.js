@@ -14,23 +14,23 @@ document.getElementById("query").oninput = function () {
 };
 Promise.all([
     getDictPromise(),
-    fetch("/warframe-public-export-plus/ExportWarframes.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportWeapons.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportUpgrades.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportArcanes.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportResources.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportFlavour.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportCustoms.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportGear.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportSentinels.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportRewards.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportRegions.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportEnemies.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportRecipes.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportImages.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportTextIcons.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportRelics.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportAbilities.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportWarframes.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportWeapons.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportUpgrades.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportArcanes.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportResources.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportFlavour.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportCustoms.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportGear.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportSentinels.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportRewards.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportRegions.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportEnemies.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportRecipes.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportImages.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportTextIcons.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportRelics.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportAbilities.json").then(res => res.json()),
     fetch("supplemental-data/glyphs.json").then(res => res.json())
 ]).then(([dict, ExportWarframes, ExportWeapons, ExportUpgrades, ExportArcanes, ExportResources, ExportFlavour, ExportCustoms, ExportGear, ExportSentinels, ExportRewards, ExportRegions, ExportEnemies, ExportRecipes, ExportImages, ExportTextIcons, ExportRelics, ExportAbilities, supplementalGlyphData]) => {
     window.dict = dict;
@@ -237,7 +237,7 @@ function doQuery(query) {
                 const a = document.createElement("a");
                 a.textContent = "📖";
                 a.title = "See other languages";
-                a.href = result.value.name;
+                a.href = "https://browse.wf" + result.value.name;
                 a.target = "_blank";
                 a.style.textDecoration = "none";
                 title.appendChild(a);
@@ -252,7 +252,7 @@ function doQuery(query) {
                 const a = document.createElement("a");
                 a.textContent = "📖";
                 a.title = "View raw data";
-                a.href = result.key;
+                a.href = "https://browse.wf" + result.key;
                 a.target = "_blank";
                 a.style.textDecoration = "none";
                 subtitle.appendChild(a);
@@ -269,7 +269,7 @@ function doQuery(query) {
                 const a = document.createElement("a");
                 a.textContent = "📖";
                 a.title = "See other languages";
-                a.href = result.value.description;
+                a.href = "https://browse.wf" + result.value.description;
                 a.target = "_blank";
                 a.style.textDecoration = "none";
                 p.appendChild(a);
@@ -455,7 +455,7 @@ function doQuery(query) {
                 const a = document.createElement("a");
                 a.textContent = "📖";
                 a.title = "See other languages";
-                a.href = result.key;
+                a.href = "https://browse.wf" + result.key;
                 a.target = "_blank";
                 a.style.textDecoration = "none";
                 p.appendChild(a);

@@ -3,12 +3,12 @@ const STATE_RESURGENCE = 1;
 const STATE_INROTATION = 2;
 Promise.all([
     getDictPromise(),
-    fetch("/warframe-public-export-plus/ExportRelics.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportRewards.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportRecipes.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportWeapons.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportWarframes.json").then(res => res.json()),
-    fetch("/warframe-public-export-plus/ExportSentinels.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportRelics.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportRewards.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportRecipes.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportWeapons.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportWarframes.json").then(res => res.json()),
+    fetch("https://browse.wf/warframe-public-export-plus/ExportSentinels.json").then(res => res.json()),
     fetch("https://raw.githubusercontent.com/calamity-inc/warframe-worldstate-history/senpai/worldState.json").then(res => res.json()),
 ]).then(function ([dict, ExportRelics, ExportRewards, ExportRecipes, ExportWeapons, ExportWarframes, ExportSentinels, worldState]) {
     window.dict = dict;

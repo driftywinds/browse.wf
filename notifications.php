@@ -1,413 +1,306 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" data-bs-theme="dark">
 <head>
 	<title>Notifications | browse.wf</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="Configure Apprise push notifications for Warframe world-state events.">
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-	<link rel="icon" href="/Lotus/Interface/Icons/Categories/GrimoireModIcon.png">
+	<link rel="icon" href="https://browse.wf/Lotus/Interface/Icons/Categories/GrimoireModIcon.png">
 	<style>
-		.section-card { margin-bottom: 1rem; }
-		.subscription-group { margin-left: 1.5rem; }
-		.form-switch { padding-left: 2.5em; }
-		.event-label { cursor: pointer; user-select: none; }
-		.filter-row { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin-top: .25rem; margin-left: 1.5rem; }
-		.filter-row label { font-size: .875rem; color: var(--bs-secondary-color); }
-		.filter-row select { width: auto; min-width: 120px; }
-		#status-msg { transition: opacity .3s; }
-		#status-msg.fade-out { opacity: 0; }
-		.auth-section { max-width: 400px; }
-		.config-section { display: none; }
-		.config-section.visible { display: block; }
-		.badge-tag { font-size: .75rem; padding: .125rem .5rem; border-radius: 1rem; background: var(--bs-secondary-bg); color: var(--bs-body-color); display: inline-block; margin: .125rem; }
+		.filter-tag { cursor:pointer; user-select:none; }
+		.filter-tag input { cursor:pointer; }
+		code.url-example { word-break:break-all; font-size:.8rem; }
+		#endpoints-list .input-group { margin-bottom:.35rem; }
+		.section-label { font-size:.78rem; font-weight:600; text-transform:uppercase;
+		                 letter-spacing:.05em; color:var(--bs-secondary-color); margin-bottom:.4rem; }
 	</style>
 </head>
 <body data-bs-theme="dark">
+<?php
+require_once __DIR__ . '/notif/db.php';
+$user = require_login();
+$cfg  = get_user_config((int)$user['id']);
+$is_admin = (bool)$user['is_admin'];
+?>
 	<?php require "components/navbar.php"; ?>
-	<div class="container pt-3">
-		<h3 class="mb-3">🔔 Notifications</h3>
+	<div class="container py-4" style="max-width:860px">
 
-		<div id="status-msg" class="alert d-none" role="alert"></div>
+		<!-- Header bar with user info -->
+		<div class="d-flex align-items-center mb-1 gap-3">
+			<h2 class="mb-0">Notifications</h2>
+			<span class="text-secondary ms-auto" style="font-size:.9rem">
+				Signed in as <strong><?=htmlspecialchars($user['username'])?></strong>
+				<?php if ($is_admin): ?><span class="badge bg-warning text-dark ms-1">admin</span><?php endif; ?>
+			</span>
+			<?php if ($is_admin): ?>
+			<a href="/admin-users" class="btn btn-sm btn-outline-secondary">Manage users</a>
+			<?php endif; ?>
+			<a href="/logout" class="btn btn-sm btn-outline-danger">Log out</a>
+		</div>
+		<p class="text-secondary mb-4" style="font-size:.9rem">
+			Send push notifications via <a href="https://github.com/caronc/apprise" target="_blank" rel="noopener">Apprise</a>
+			whenever world-state events change. A background daemon running inside the container
+			polls the world state every 60 s and dispatches notifications — no browser tab needed.
+		</p>
 
-		<!-- Auth Section -->
-		<div id="auth-section" class="auth-section">
-			<!-- Login Form -->
-			<div id="login-form" class="card section-card">
-				<h5 class="card-header">Log In</h5>
-				<div class="card-body">
-					<div class="mb-3">
-						<label for="login-username" class="form-label">Username</label>
-						<input id="login-username" type="text" class="form-control" autocomplete="username" />
-					</div>
-					<div class="mb-3">
-						<label for="login-password" class="form-label">Password</label>
-						<input id="login-password" type="password" class="form-control" autocomplete="current-password" />
-					</div>
-					<button class="btn btn-primary" onclick="doLogin()">Log In</button>
-					<button class="btn btn-outline-secondary ms-2" onclick="showRegister()">Create Account</button>
+		<!-- ── 1. Apprise server ──────────────────────────────────────────── -->
+		<div class="card mb-4">
+			<div class="card-header"><h5 class="mb-0">1 · Apprise Server</h5></div>
+			<div class="card-body">
+				<p class="text-secondary mb-2" style="font-size:.9rem">
+					Run <a href="https://github.com/caronc/apprise-api" target="_blank" rel="noopener">apprise-api</a>
+					alongside this container (see the docker-compose snippet in
+					<code>docker-compose.yml</code>) and paste its internal URL here.
+					The daemon will POST to <code>/notify</code> on that server.
+				</p>
+				<div class="input-group mb-2">
+					<span class="input-group-text">Server URL</span>
+					<input type="url" id="apprise-url" class="form-control"
+						placeholder="http://apprise:8000"
+						value="<?=htmlspecialchars($cfg['apprise_server'])?>">
+					<button class="btn btn-outline-secondary" id="test-btn" type="button">Test</button>
 				</div>
-			</div>
-			<!-- Register Form (hidden by default) -->
-			<div id="register-form" class="card section-card d-none">
-				<h5 class="card-header">Create Account</h5>
-				<div class="card-body">
-					<p class="text-body-secondary small">The first account created on this server becomes the admin.</p>
-					<div class="mb-3">
-						<label for="reg-username" class="form-label">Username</label>
-						<input id="reg-username" type="text" class="form-control" autocomplete="username" />
-					</div>
-					<div class="mb-3">
-						<label for="reg-password" class="form-label">Password</label>
-						<input id="reg-password" type="password" class="form-control" autocomplete="new-password" />
-					</div>
-					<div class="mb-3">
-						<label for="reg-password2" class="form-label">Confirm Password</label>
-						<input id="reg-password2" type="password" class="form-control" autocomplete="new-password" />
-					</div>
-					<button class="btn btn-success" onclick="doRegister()">Create Account</button>
-					<button class="btn btn-outline-secondary ms-2" onclick="showLogin()">Back to Log In</button>
-				</div>
+				<div id="test-result" class="d-none alert py-2 mb-0"></div>
 			</div>
 		</div>
 
-		<!-- Config Section (visible when logged in) -->
-		<div id="config-section" class="config-section">
-			<div class="d-flex justify-content-between align-items-center mb-2">
-				<span>Logged in as <b id="logged-in-user"></b></span>
-				<button class="btn btn-sm btn-outline-danger" onclick="doLogout()">Log Out</button>
-			</div>
-
-			<!-- Apprise Server -->
-			<div class="card section-card">
-				<h5 class="card-header">Apprise Server</h5>
-				<div class="card-body">
-					<div class="mb-3">
-						<label for="apprise-url" class="form-label">Apprise Server URL</label>
-						<input id="apprise-url" type="url" class="form-control" placeholder="http://apprise:8000" />
-						<div class="form-text">The URL of your running <a href="https://github.com/caronc/apprise-api" target="_blank">Apprise API</a> server (e.g. <code>http://192.168.1.100:8000</code>).</div>
+		<!-- ── 2. Endpoints ──────────────────────────────────────────────── -->
+		<div class="card mb-4">
+			<div class="card-header"><h5 class="mb-0">2 · Notification Endpoints</h5></div>
+			<div class="card-body">
+				<p class="text-secondary mb-2" style="font-size:.9rem">
+					Add one or more <a href="https://github.com/caronc/apprise/wiki" target="_blank" rel="noopener">Apprise URLs</a>.
+					Leave empty to use whatever defaults are configured on the Apprise server.
+				</p>
+				<div id="endpoints-list">
+				<?php foreach (($cfg['endpoints'] ?: ['']) as $ep): ?>
+					<div class="input-group">
+						<input type="text" class="form-control font-monospace endpoint-input"
+							placeholder="tgram://BotToken/ChatID"
+							value="<?=htmlspecialchars($ep)?>"
+							autocomplete="off">
+						<button class="btn btn-outline-danger remove-endpoint" type="button">×</button>
 					</div>
-					<div class="mb-3">
-						<label for="apprise-endpoints" class="form-label">Notification Endpoints / Tags</label>
-						<textarea id="apprise-endpoints" class="form-control" rows="2" placeholder="discord://webhook_id/webhook_token&#10;slack://token_a/token_b/token_c&#10;tagos"></textarea>
-						<div class="form-text">One URL or tag per line. These are passed to the Apprise server for each notification. Leave empty to use the server's default configured endpoints.</div>
-					</div>
+				<?php endforeach; ?>
 				</div>
-			</div>
-
-			<!-- Event Subscriptions -->
-			<div class="card section-card">
-				<h5 class="card-header">Event Subscriptions</h5>
-				<div class="card-body">
-					<p class="text-body-secondary small mb-3">Toggle which events should trigger Apprise notifications. For Fissures and Arbitrations you can filter by mission type and tier.</p>
-
-					<div id="subscriptions-list"></div>
-				</div>
-			</div>
-
-			<!-- Actions -->
-			<div class="d-flex gap-2 mb-3">
-				<button id="save-btn" class="btn btn-primary" onclick="saveConfig()">💾 Save Config</button>
-				<button id="test-btn" class="btn btn-outline-info" onclick="testNotification()">🧪 Send Test Notification</button>
+				<button class="btn btn-sm btn-outline-secondary mt-2" id="add-endpoint-btn" type="button">+ Add endpoint</button>
+				<details class="mt-3">
+					<summary class="text-secondary" style="cursor:pointer;font-size:.85rem">Common Apprise URL examples</summary>
+					<table class="table table-sm table-borderless mt-2" style="font-size:.82rem">
+						<tbody>
+							<tr><th style="white-space:nowrap">Telegram</th><td><code class="url-example">tgram://BotToken/ChatID</code></td></tr>
+							<tr><th style="white-space:nowrap">Discord</th><td><code class="url-example">discord://WebhookID/WebhookToken</code></td></tr>
+							<tr><th style="white-space:nowrap">Gotify</th><td><code class="url-example">gotify://hostname/AppToken</code></td></tr>
+							<tr><th style="white-space:nowrap">Pushover</th><td><code class="url-example">pover://UserKey@AppToken</code></td></tr>
+							<tr><th style="white-space:nowrap">Slack</th><td><code class="url-example">slack://TokenA/TokenB/TokenC/Channel</code></td></tr>
+							<tr><th style="white-space:nowrap">Ntfy</th><td><code class="url-example">ntfy://topic  or  ntfy://host/topic</code></td></tr>
+						</tbody>
+					</table>
+				</details>
 			</div>
 		</div>
-	</div>
+
+		<!-- ── 3. Events & Filters ───────────────────────────────────────── -->
+		<div class="card mb-4">
+			<div class="card-header"><h5 class="mb-0">3 · Events &amp; Filters</h5></div>
+			<div class="card-body">
+				<p class="text-secondary mb-3" style="font-size:.9rem">
+					Choose which events trigger a notification. For Fissures and Arbitrations
+					you can filter by tier and/or mission type — leave a group empty to match all.
+				</p>
+
+				<?php
+				$SIMPLE_EVENTS = [
+					['key'=>'nightfall',   'label'=>'Plains of Eidolon Nightfall (30 s warning)'],
+					['key'=>'news',        'label'=>'News'],
+					['key'=>'darvo',       'label'=>"Darvo's Deal"],
+					['key'=>'sortie',      'label'=>'Sortie'],
+					['key'=>'litesortie',  'label'=>'Archon Hunt'],
+					['key'=>'baro',        'label'=>"Baro Ki'Teer arrival"],
+					['key'=>'alerts',      'label'=>'Alerts'],
+					['key'=>'bounties',    'label'=>'Bounties'],
+					['key'=>'teshin',      'label'=>'Vendors / Steel Path Honors'],
+					['key'=>'circuit',     'label'=>'Weekly Missions reset'],
+					['key'=>'labconquest', 'label'=>'Deep Archimedea'],
+					['key'=>'hexconquest', 'label'=>'Temporal Archimedea'],
+				];
+				$FISSURE_TIERS = ['Lith','Meso','Neo','Axi','Requiem','Omnia'];
+				$MISSION_TYPES = [
+					'Assassination','Assault','Capture','Crossfire','Defense',
+					'Disruption','Excavation','Exterminate','Hijack','Hive',
+					'Infested Salvage','Interception','Mobile Defense','Orphix',
+					'Pursuit','Rescue','Rush','Sabotage','Skirmish','Spy',
+					'Survival','Volatile',
+				];
+
+				function checkbox(string $id, string $label, bool $checked): void {
+					$c = $checked ? ' checked' : '';
+					echo '<div class="form-check form-check-inline filter-tag">'
+						. '<input class="form-check-input" type="checkbox" id="'.$id.'" '.$c.'>'
+						. '<label class="form-check-label" for="'.$id.'">'.htmlspecialchars($label).'</label>'
+						. '</div>';
+				}
+				function filter_checkboxes(string $prefix, array $items, array $selected): void {
+					foreach ($items as $item) {
+						$id = $prefix . preg_replace('/\s+/', '_', $item);
+						checkbox($id, $item, in_array($item, $selected));
+					}
+				}
+				?>
+
+				<!-- Simple toggles -->
+				<div class="section-label">World State Events</div>
+				<div class="mb-3 d-flex flex-wrap gap-1">
+				<?php foreach ($SIMPLE_EVENTS as $ev): ?>
+					<?php checkbox('ev-'.$ev['key'], $ev['label'], !empty($cfg['events'][$ev['key']])); ?>
+				<?php endforeach; ?>
+				</div>
+
+				<!-- Normal fissures -->
+				<div class="section-label mt-2">Void Fissures — Normal</div>
+				<div class="mb-1"><small class="text-secondary">Tier (empty = all)</small></div>
+				<div class="mb-2 d-flex flex-wrap gap-1">
+					<?php filter_checkboxes('ft-', $FISSURE_TIERS, $cfg['fissure_filters']['tiers']); ?>
+				</div>
+				<div class="mb-1"><small class="text-secondary">Mission type (empty = all)</small></div>
+				<div class="mb-3 d-flex flex-wrap gap-1">
+					<?php filter_checkboxes('fm-', $MISSION_TYPES, $cfg['fissure_filters']['types']); ?>
+				</div>
+
+				<!-- SP fissures -->
+				<div class="section-label mt-2">Void Fissures — Steel Path</div>
+				<div class="mb-1"><small class="text-secondary">Tier (empty = all)</small></div>
+				<div class="mb-2 d-flex flex-wrap gap-1">
+					<?php filter_checkboxes('sft-', $FISSURE_TIERS, $cfg['sp_fissure_filters']['tiers']); ?>
+				</div>
+				<div class="mb-1"><small class="text-secondary">Mission type (empty = all)</small></div>
+				<div class="mb-3 d-flex flex-wrap gap-1">
+					<?php filter_checkboxes('sfm-', $MISSION_TYPES, $cfg['sp_fissure_filters']['types']); ?>
+				</div>
+
+				<!-- Arbitration -->
+				<div class="section-label mt-2">Arbitration</div>
+				<div class="mb-1"><small class="text-secondary">Mission type (empty = notify on every rotation)</small></div>
+				<div class="d-flex flex-wrap gap-1">
+					<?php filter_checkboxes('at-', $MISSION_TYPES, $cfg['arby_filters']); ?>
+				</div>
+
+			</div>
+		</div>
+
+		<!-- Save -->
+		<div class="d-flex align-items-center gap-3">
+			<button class="btn btn-primary" id="save-btn" type="button">Save settings</button>
+			<span id="save-status" class="text-secondary" style="font-size:.9rem"></span>
+		</div>
+
+	</div><!-- /container -->
 
 	<?php require "components/commonjs.html"; ?>
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 	<script>
-		async function apiCall(url, options = {}) {
-			try {
-				const res = await fetch(url, {
-					headers: { "Content-Type": "application/json" },
-					...options,
-				});
-				return await res.json();
-			} catch (e) {
-				return { success: false, message: "Network error: " + e.message };
-			}
+	// ── Constants (mirrored from PHP) ────────────────────────────────────────
+	const SIMPLE_EVENT_KEYS = <?=json_encode(array_column($SIMPLE_EVENTS,'key'))?>;
+	const FISSURE_TIERS     = <?=json_encode($FISSURE_TIERS)?>;
+	const MISSION_TYPES     = <?=json_encode($MISSION_TYPES)?>;
+
+	// ── Endpoint rows ─────────────────────────────────────────────────────────
+	document.getElementById("add-endpoint-btn").addEventListener("click", () => {
+		const ig = document.createElement("div");
+		ig.className = "input-group";
+		ig.innerHTML = `<input type="text" class="form-control font-monospace endpoint-input"
+			placeholder="tgram://BotToken/ChatID" autocomplete="off">
+			<button class="btn btn-outline-danger remove-endpoint" type="button">×</button>`;
+		document.getElementById("endpoints-list").appendChild(ig);
+		ig.querySelector("input").focus();
+	});
+
+	document.getElementById("endpoints-list").addEventListener("click", e => {
+		if (e.target.classList.contains("remove-endpoint")) {
+			e.target.closest(".input-group").remove();
+		}
+	});
+
+	// ── Collect payload ───────────────────────────────────────────────────────
+	function collect() {
+		const events = {};
+		for (const key of SIMPLE_EVENT_KEYS) {
+			const cb = document.getElementById("ev-" + key);
+			if (cb && cb.checked) events[key] = true;
 		}
 
-		function showStatus(msg, type) {
-			const el = document.getElementById("status-msg");
-			el.textContent = msg;
-			el.className = "alert alert-" + type + " show";
-			el.classList.remove("d-none");
-			clearTimeout(el._timeout);
-			el._timeout = setTimeout(() => el.classList.add("d-none"), 6000);
+		function checkedList(prefix, items) {
+			return items.filter(i => {
+				const cb = document.getElementById(prefix + i.replace(/\s+/g,"_"));
+				return cb && cb.checked;
+			});
 		}
 
-		function showLogin() {
-			document.getElementById("login-form").classList.remove("d-none");
-			document.getElementById("register-form").classList.add("d-none");
-		}
+		return {
+			apprise_server:     document.getElementById("apprise-url").value.trim(),
+			endpoints:          Array.from(document.querySelectorAll(".endpoint-input"))
+			                        .map(i=>i.value.trim()).filter(Boolean),
+			events,
+			fissure_filters:    { tiers: checkedList("ft-",  FISSURE_TIERS), types: checkedList("fm-",  MISSION_TYPES) },
+			sp_fissure_filters: { tiers: checkedList("sft-", FISSURE_TIERS), types: checkedList("sfm-", MISSION_TYPES) },
+			arby_filters:       checkedList("at-", MISSION_TYPES),
+		};
+	}
 
-		function showRegister() {
-			document.getElementById("login-form").classList.add("d-none");
-			document.getElementById("register-form").classList.remove("d-none");
-		}
-
-		async function doLogin() {
-			const username = document.getElementById("login-username").value.trim();
-			const password = document.getElementById("login-password").value;
-			if (!username || !password) { showStatus("Please fill in both fields.", "warning"); return; }
-			const res = await apiCall("api/auth.php?action=login", {
+	// ── Save ──────────────────────────────────────────────────────────────────
+	document.getElementById("save-btn").addEventListener("click", async () => {
+		const status = document.getElementById("save-status");
+		status.textContent = "Saving…";
+		try {
+			const res = await fetch("/notif/save", {
 				method: "POST",
-				body: JSON.stringify({ username, password }),
+				headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+				body: JSON.stringify(collect()),
 			});
-			if (res.success) {
-				showStatus("Logged in as " + res.user.username, "success");
-				checkSession();
+			const data = await res.json();
+			if (res.ok) {
+				status.textContent = "✓ Saved";
+				setTimeout(() => { status.textContent = ""; }, 2500);
 			} else {
-				showStatus(res.message, "danger");
+				status.textContent = "✗ " + (data.error || "Save failed");
 			}
+		} catch(e) {
+			status.textContent = "✗ " + e.message;
 		}
+	});
 
-		async function doRegister() {
-			const username = document.getElementById("reg-username").value.trim();
-			const password = document.getElementById("reg-password").value;
-			const password2 = document.getElementById("reg-password2").value;
-			if (!username || !password) { showStatus("Please fill in all fields.", "warning"); return; }
-			if (password !== password2) { showStatus("Passwords do not match.", "warning"); return; }
-			const res = await apiCall("api/auth.php?action=register", {
-				method: "POST",
-				body: JSON.stringify({ username, password }),
-			});
-			if (res.success) {
-				showStatus(res.message, "success");
-				checkSession();
-			} else {
-				showStatus(res.message, "danger");
-			}
-		}
+	// ── Test ──────────────────────────────────────────────────────────────────
+	document.getElementById("test-btn").addEventListener("click", async () => {
+		const el = document.getElementById("test-result");
+		el.className = "alert py-2 mb-0 alert-secondary";
+		el.classList.remove("d-none");
+		el.textContent = "Sending test notification…";
 
-		async function doLogout() {
-			await apiCall("api/auth.php?action=logout", { method: "POST" });
-			checkSession();
-		}
-
-		// Subscription definitions
-		const SUBSCRIPTIONS = [
-			{ key: "sortie", label: "Sortie", desc: "New sortie available" },
-			{ key: "litesortie", label: "Archon Hunt", desc: "New Archon Hunt (weekly)" },
-			{ key: "alert", label: "Alerts", desc: "New alerts" },
-			{ key: "darvo", label: "Darvo's Deal", desc: "New Darvo daily deal" },
-			{ key: "baro", label: "Baro Ki'Teer", desc: "Baro arrives at a relay" },
-			{ key: "bounties", label: "Bounties", desc: "New bounty rotation" },
-			{ key: "nightfall", label: "Nightfall", desc: "30s before Plains of Eidolon nightfall" },
-			{ key: "news", label: "News", desc: "New news/redtext posts" },
-			{ key: "teshin", label: "Vendors", desc: "Teshin/Iron Wake weekly refresh (weekly)" },
-			{ key: "circuit", label: "Weekly Missions", desc: "Weekly missions refresh (weekly)" },
-			{ key: "labconquest", label: "Deep Archimedea", desc: "Deep Archimedea refresh (weekly)" },
-			{ key: "hexconquest", label: "Temporal Archimedea", desc: "Temporal Archimedea refresh (weekly)" },
-			{ key: "invasions", label: "Invasions", desc: "New invasions detected" },
-			{ key: "weekly", label: "Weekly Rollover", desc: "Combined weekly notification (when week resets)" },
-		];
-
-		const FISSURE_MISSION_TYPES = [
-			"MT_SURVIVAL", "MT_DEFENSE", "MT_EXCAVATE", "MT_TERRITORY", "MT_SABOTAGE",
-			"MT_CAPTURE", "MT_MOBILE_DEFENSE", "MT_RESCUE", "MT_EXTERMINATION",
-			"MT_HIVE", "MT_ASSAULT", "MT_PURIFY", "MT_EVACUATION", "MT_ARTIFACT",
-			"MT_CORRUPTION", "MT_VOID_CASCADE", "MT_ARMAGEDDON", "MT_ALCHEMY",
-		];
-
-		const FISSURE_TIERS = ["VoidT1", "VoidT2", "VoidT3", "VoidT4", "VoidT5", "VoidT6"];
-
-		const TIER_LABELS = { VoidT1: "Lith", VoidT2: "Meso", VoidT3: "Neo", VoidT4: "Axi", VoidT5: "Requiem", VoidT6: "Omnia" };
-
-		const ARBY_MISSION_TYPES = [
-			"MT_SURVIVAL", "MT_DEFENSE", "MT_TERRITORY", "MT_EXCAVATE",
-			"MT_PURIFY", "MT_EVACUATION", "MT_ARTIFACT",
-			"MT_CORRUPTION", "MT_VOID_CASCADE", "MT_ARMAGEDDON", "MT_ALCHEMY",
-		];
-
-		function buildSubscriptionsUI(config) {
-			const container = document.getElementById("subscriptions-list");
-			container.innerHTML = "";
-
-			// Simple event toggles
-			for (const sub of SUBSCRIPTIONS) {
-				const div = document.createElement("div");
-				div.className = "form-check form-switch mb-2";
-				div.innerHTML = `
-					<input class="form-check-input" type="checkbox" id="sub-${sub.key}" ${config.subscriptions[sub.key] ? "checked" : ""}>
-					<label class="form-check-label event-label" for="sub-${sub.key}">
-						<strong>${sub.label}</strong>
-						<br><span class="text-body-secondary small">${sub.desc}</span>
-					</label>`;
-				container.appendChild(div);
-			}
-
-			// Fissures (granular)
-			{
-				const fiss = config.subscriptions.fissures || {};
-				const section = document.createElement("div");
-				section.className = "mt-3 pt-3 border-top";
-				section.innerHTML = `
-					<div class="form-check form-switch">
-						<input class="form-check-input" type="checkbox" id="sub-fissures-enabled" ${fiss.enabled ? "checked" : ""}>
-						<label class="form-check-label event-label" for="sub-fissures-enabled"><strong>Fissures (Granular)</strong></label>
-					</div>
-					<div id="fissures-filters" class="filter-row ${fiss.enabled ? "" : "d-none"}">`;
-
-				const filtersDiv = section.querySelector("#fissures-filters");
-
-				// Mission type multi-select
-				filtersDiv.innerHTML += `<label>Mission Types:</label>
-					<select id="fissures-mission-types" class="form-select form-select-sm" multiple size="4">
-						<option value="" ${(!fiss.mission_types || fiss.mission_types.length === 0) ? "selected" : ""}>Any</option>
-						${FISSURE_MISSION_TYPES.map(mt => `<option value="${mt}" ${(fiss.mission_types || []).includes(mt) ? "selected" : ""}>${mt.replace("MT_", "")}</option>`).join("")}
-					</select>`;
-
-				filtersDiv.innerHTML += `<label>Tiers:</label>
-					<select id="fissures-tiers" class="form-select form-select-sm" multiple size="3">
-						<option value="" ${(!fiss.tiers || fiss.tiers.length === 0) ? "selected" : ""}>Any</option>
-						${FISSURE_TIERS.map(t => `<option value="${t}" ${(fiss.tiers || []).includes(t) ? "selected" : ""}>${TIER_LABELS[t] || t}</option>`).join("")}
-					</select>`;
-
-				container.appendChild(section);
-
-				// Toggle filter visibility
-				document.getElementById("sub-fissures-enabled").addEventListener("change", function() {
-					document.getElementById("fissures-filters").classList.toggle("d-none", !this.checked);
-				});
-			}
-
-			// Arbitration (granular)
-			{
-				const arbySub = config.subscriptions.arbys || {};
-				const section = document.createElement("div");
-				section.className = "mt-3 pt-3 border-top";
-				section.innerHTML = `
-					<div class="form-check form-switch">
-						<input class="form-check-input" type="checkbox" id="sub-arbys-enabled" ${arbySub.enabled ? "checked" : ""}>
-						<label class="form-check-label event-label" for="sub-arbys-enabled"><strong>Arbitrations (Granular)</strong></label>
-					</div>
-					<div id="arbys-filters" class="filter-row ${arbySub.enabled ? "" : "d-none"}">`;
-
-				const filtersDiv = section.querySelector("#arbys-filters");
-
-				filtersDiv.innerHTML += `<label>Mission Types:</label>
-					<select id="arbys-mission-types" class="form-select form-select-sm" multiple size="4">
-						<option value="" ${(!arbySub.mission_types || arbySub.mission_types.length === 0) ? "selected" : ""}>Any</option>
-						${ARBY_MISSION_TYPES.map(mt => `<option value="${mt}" ${(arbySub.mission_types || []).includes(mt) ? "selected" : ""}>${mt.replace("MT_", "")}</option>`).join("")}
-					</select>`;
-
-				container.appendChild(section);
-
-				document.getElementById("sub-arbys-enabled").addEventListener("change", function() {
-					document.getElementById("arbys-filters").classList.toggle("d-none", !this.checked);
-				});
-			}
-		}
-
-		function readSubscriptionsFromUI() {
-			const subs = {};
-			for (const sub of SUBSCRIPTIONS) {
-				subs[sub.key] = document.getElementById("sub-" + sub.key).checked;
-			}
-
-			// Fissures
-			const fissEnabled = document.getElementById("sub-fissures-enabled").checked;
-			const fissMT = Array.from(document.getElementById("fissures-mission-types").selectedOptions)
-				.map(o => o.value).filter(v => v !== "");
-			const fissTiers = Array.from(document.getElementById("fissures-tiers").selectedOptions)
-				.map(o => o.value).filter(v => v !== "");
-			subs.fissures = { enabled: fissEnabled, mission_types: fissMT, tiers: fissTiers };
-
-			// Arbitrations
-			const arbyEnabled = document.getElementById("sub-arbys-enabled").checked;
-			const arbyMT = Array.from(document.getElementById("arbys-mission-types").selectedOptions)
-				.map(o => o.value).filter(v => v !== "");
-			subs.arbys = { enabled: arbyEnabled, mission_types: arbyMT };
-
-			return subs;
-		}
-
-		async function saveConfig() {
-			const btn = document.getElementById("save-btn");
-			btn.disabled = true;
-			btn.textContent = "Saving...";
-
-			const config = {
-				apprise_server_url: document.getElementById("apprise-url").value.trim(),
-				endpoints: document.getElementById("apprise-endpoints").value.trim(),
-				subscriptions: readSubscriptionsFromUI(),
-			};
-
-			const res = await apiCall("api/notifications.php?action=config", {
-				method: "POST",
-				body: JSON.stringify({ config }),
-			});
-
-			if (res.success) {
-				showStatus("Config saved!", "success");
-			} else {
-				showStatus(res.message, "danger");
-			}
-
-			btn.disabled = false;
-			btn.textContent = "💾 Save Config";
-		}
-
-		async function testNotification() {
-			const btn = document.getElementById("test-btn");
-			btn.disabled = true;
-			btn.textContent = "Sending...";
-
-			const res = await apiCall("api/notifications.php?action=test", { method: "POST" });
-
-			if (res.success) {
-				showStatus("✅ Test notification sent! Check your notification endpoint.", "success");
-			} else {
-				showStatus("❌ " + res.message, "danger");
-			}
-
-			btn.disabled = false;
-			btn.textContent = "🧪 Send Test Notification";
-		}
-
-		async function loadConfig() {
-			const res = await apiCall("api/notifications.php?action=config", { method: "GET" });
-			if (res.success) {
-				const config = res.config;
-				document.getElementById("apprise-url").value = config.apprise_server_url || "";
-				document.getElementById("apprise-endpoints").value = config.endpoints || "";
-				buildSubscriptionsUI(config);
-			}
-		}
-
-		async function checkSession() {
-			const res = await apiCall("api/auth.php?action=session", { method: "GET" });
-
-			const authSection = document.getElementById("auth-section");
-			const configSection = document.getElementById("config-section");
-
-			if (res.logged_in) {
-				authSection.classList.add("d-none");
-				configSection.classList.add("visible");
-				document.getElementById("logged-in-user").textContent = res.user.username;
-				loadConfig();
-			} else {
-				authSection.classList.remove("d-none");
-				configSection.classList.remove("visible");
-				// Post login redirect: if coming from navbar login prompt
-				const params = new URLSearchParams(location.search);
-				if (params.has("login")) {
-					document.getElementById("login-username").focus();
-				}
-			}
-		}
-
-		// Allow Enter key on login/register
-		document.addEventListener("DOMContentLoaded", function() {
-			document.getElementById("login-password").addEventListener("keydown", function(e) {
-				if (e.key === "Enter") doLogin();
-			});
-			document.getElementById("reg-password2").addEventListener("keydown", function(e) {
-				if (e.key === "Enter") doRegister();
-			});
-
-			checkSession();
+		// Save current config first so the server uses fresh values
+		await fetch("/notif/save", {
+			method: "POST",
+			headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+			body: JSON.stringify(collect()),
 		});
+
+		try {
+			const res  = await fetch("/notif/test", {
+				method: "POST",
+				headers: { "X-Requested-With": "XMLHttpRequest" },
+			});
+			const data = await res.json();
+			if (data.ok) {
+				el.className = "alert py-2 mb-0 alert-success";
+				el.textContent = "✓ Test notification sent.";
+			} else {
+				el.className = "alert py-2 mb-0 alert-danger";
+				el.textContent = "✗ " + (data.error || ("HTTP " + data.status));
+			}
+		} catch(e) {
+			el.className = "alert py-2 mb-0 alert-danger";
+			el.textContent = "✗ " + e.message;
+		}
+	});
 	</script>
 </body>
 </html>

@@ -1,18 +1,9 @@
-<!doctype html>
-<html lang="en" data-bs-theme="dark">
-<head>
-	<title>Login | browse.wf</title>
-	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-	<link rel="icon" href="https://browse.wf/Lotus/Interface/Icons/Categories/GrimoireModIcon.png">
-</head>
-<body data-bs-theme="dark">
 <?php
 require_once __DIR__ . '/notif/db.php';
 session_start_safe();
 
 $error   = '';
-$mode    = 'login';  // 'login' | 'register'
+$mode    = 'login';
 $no_users = user_count() === 0;
 
 if ($no_users) {
@@ -31,7 +22,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (strlen($password) < 6) {
             $error = 'Password must be at least 6 characters.';
         } elseif (!$no_users) {
-            // After first user, only admin can create accounts (handled in admin page)
             $error = 'Registration is closed. Ask an admin to create your account.';
         } else {
             try {
@@ -56,12 +46,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Already logged in
 if (current_user()) {
     header('Location: /notifications');
     exit;
 }
 ?>
+<!doctype html>
+<html lang="en" data-bs-theme="dark">
+<head>
+	<title>Login | browse.wf</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+	<link rel="icon" href="https://browse.wf/Lotus/Interface/Icons/Categories/GrimoireModIcon.png">
+</head>
+<body data-bs-theme="dark">
 	<?php require "components/navbar.php"; ?>
 	<div class="container py-5" style="max-width:420px">
 		<h2 class="mb-1"><?=$no_users ? 'Create Admin Account' : ($mode === 'register' ? 'Register' : 'Login')?></h2>

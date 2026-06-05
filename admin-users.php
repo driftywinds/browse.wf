@@ -1,12 +1,3 @@
-<!doctype html>
-<html lang="en" data-bs-theme="dark">
-<head>
-	<title>Manage Users | browse.wf</title>
-	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-	<link rel="icon" href="https://browse.wf/Lotus/Interface/Icons/Categories/GrimoireModIcon.png">
-</head>
-<body data-bs-theme="dark">
 <?php
 require_once __DIR__ . '/notif/db.php';
 $admin = require_admin();
@@ -56,6 +47,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $users = get_db()->query('SELECT id, username, is_admin, created_at FROM users ORDER BY id ASC')->fetchAll();
 ?>
+<!doctype html>
+<html lang="en" data-bs-theme="dark">
+<head>
+	<title>Manage Users | browse.wf</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+	<link rel="icon" href="https://browse.wf/Lotus/Interface/Icons/Categories/GrimoireModIcon.png">
+</head>
+<body data-bs-theme="dark">
 	<?php require "components/navbar.php"; ?>
 	<div class="container py-4" style="max-width:700px">
 		<div class="d-flex align-items-center mb-4 gap-3">

@@ -1,3 +1,9 @@
+<?php
+require_once __DIR__ . '/notif/db.php';
+$user = require_login();
+$cfg  = get_user_config((int)$user['id']);
+$is_admin = (bool)$user['is_admin'];
+?>
 <!doctype html>
 <html lang="en" data-bs-theme="dark">
 <head>
@@ -16,12 +22,6 @@
 	</style>
 </head>
 <body data-bs-theme="dark">
-<?php
-require_once __DIR__ . '/notif/db.php';
-$user = require_login();
-$cfg  = get_user_config((int)$user['id']);
-$is_admin = (bool)$user['is_admin'];
-?>
 	<?php require "components/navbar.php"; ?>
 	<div class="container py-4" style="max-width:860px">
 

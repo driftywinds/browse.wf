@@ -18,7 +18,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 # Enable PHP extensions needed at runtime
 # libcurl4-openssl-dev is required before docker-php-ext-install curl can compile
 RUN apt-get update \
-    && apt-get install -y libcurl4-openssl-dev \
+    && apt-get install -y libcurl4-openssl-dev libsqlite3-dev \
     && rm -rf /var/lib/apt/lists/* \
     && docker-php-ext-install curl pdo pdo_sqlite
 

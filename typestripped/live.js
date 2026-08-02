@@ -414,6 +414,18 @@ function updateWorldState() {
         window.worldState = worldState;
         window.bountyCycleExpiry = parseInt(worldState.SyndicateMissions.find(x => x.Tag == "HexSyndicate").Expiry.$date.$numberLong);
         updateDayNightCycle();
+        // All open-world bounty systems rotate on one synchronized cycle, so a
+        // single "next reset" counter (min expiry across all syndicates) covers
+        // Cetus, Orb Vallis, Deimos, Zariman, Cavia and 1999.
+        const resets = worldState.SyndicateMissions
+            .filter(x => x.Expiry)
+            .map(x => parseInt(x.Expiry.$date.$numberLong))
+            .filter(exp => exp > Date.now());
+        if (resets.length) {
+            window.bountyResetExpiry = Math.min(...resets);
+            setWorldStateExpiry(window.bountyResetExpiry);
+            setDatum("bounty-reset", "Next reset", window.bountyResetExpiry);
+        }
         window.events_earmark = 0;
         for (const event of worldState.Events) {
             if (event.Date) {

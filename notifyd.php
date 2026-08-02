@@ -252,18 +252,26 @@ function check_darvo(array $ws, array $configs): void {
 }
 
 function check_bounties(array $ws, array $configs): void {
-    // Bounce off the Hex syndicate expiry as proxy for a new bounty cycle
+    // All open-world bounty systems (Cetus, Orb Vallis, Deimos, Zariman,
+    // Cavia, 1999) rotate on one synchronized ~150-minute cycle, so a single
+    // notification fires whenever the next reset passes. Using the minimum
+    // expiry across all syndicates stays correct even if DE desyncs them.
+    // Ignore past expiries so a stale/lagging entry can't trigger a spurious fire.
+    $now_ms = time() * 1000;
+    $resets = [];
     foreach ($ws['SyndicateMissions'] ?? [] as $sm) {
-        if ($sm['Tag'] !== 'HexSyndicate') continue;
-        $exp = (string)$sm['Expiry']['$date']['$numberLong'];
-        if (get_state('bounty_cycle') === $exp) return;
-        set_state('bounty_cycle', $exp);
-        foreach ($configs as $cfg) {
-            if (!empty($cfg['events']['bounties'])) {
-                dispatch($cfg, 'browse.wf · Bounties', 'New bounties are available.');
-            }
+        $exp = (int)($sm['Expiry']['$date']['$numberLong'] ?? 0);
+        if ($exp > $now_ms) $resets[] = $exp;
+    }
+    if (!$resets) return;
+    $next = (string)min($resets);
+    if (get_state('bounty_cycle') === $next) return;
+    set_state('bounty_cycle', $next);
+
+    foreach ($configs as $cfg) {
+        if (!empty($cfg['events']['bounties'])) {
+            dispatch($cfg, 'browse.wf · Bounties', 'New bounties are available.');
         }
-        return;
     }
 }
 

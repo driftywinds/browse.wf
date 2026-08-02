@@ -141,7 +141,7 @@ $is_admin = (bool)$user['is_admin'];
 					['key'=>'litesortie',  'label'=>'Archon Hunt'],
 					['key'=>'baro',        'label'=>"Baro Ki'Teer arrival"],
 					['key'=>'alerts',      'label'=>'Alerts'],
-					['key'=>'bounties',    'label'=>'Bounties'],
+					['key'=>'bounties',    'label'=>'Bounty rotation reset (all areas)'],
 					['key'=>'teshin',      'label'=>'Vendors / Steel Path Honors'],
 					['key'=>'circuit',     'label'=>'Weekly Missions reset'],
 					['key'=>'labconquest', 'label'=>'Deep Archimedea'],

@@ -55,6 +55,10 @@
 										<th id="zariman-name" class="w-50">Zariman</th>
 										<td id="zariman" class="w-50">Fetching data...</td>
 									</tr>
+									<tr>
+										<th id="bounty-reset-name" class="w-50">Bounty Rotation</th>
+										<td id="bounty-reset" class="w-50">Fetching data...</td>
+									</tr>
 								</table>
 							</div>
 						</div>

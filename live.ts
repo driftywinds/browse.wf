@@ -721,10 +721,18 @@ function updateWorldStateLocalised()
 	updateConquests();
 }
 
+function fetchWorldState(): Promise<any>
+{
+	// Primary: our self-hosted proxy (official DE world state, cached server-side).
+	// Fallback: the community GitHub mirror (CORS-enabled, but only ~daily).
+	return fetch("worldstate.php").then(res => res.ok ? res.json() : Promise.reject(new Error("worldState proxy: HTTP " + res.status))).catch(() =>
+		fetch("https://raw.githubusercontent.com/calamity-inc/warframe-worldstate-history/senpai/worldState.json").then(res => res.ok ? res.json() : Promise.reject(new Error("worldState mirror: HTTP " + res.status))));
+}
+
 function updateWorldState()
 {
 	window.refresh_world_state_at = undefined;
-	fetch("https://oracle.browse.wf/worldState.json").then(res => res.json()).then(worldState =>
+	fetchWorldState().then(worldState =>
 	{
 		window.worldState = worldState;
 
@@ -745,6 +753,10 @@ function updateWorldState()
 		}
 
 		updateWorldStateLocalised();
+	}).catch(e =>
+	{
+		console.error(e);
+		setTimeout(updateWorldState, 60_000);
 	});
 }
 

@@ -4,7 +4,7 @@
  * notifyd.php — browse.wf notification daemon
  *
  * Runs as a long-lived process inside the container (via supervisord).
- * Polls https://oracle.browse.wf/worldState.json every 60 s and dispatches
+ * Polls the local worldstate proxy (worldstate.php) every 60 s and dispatches
  * Apprise notifications to every user whose config matches the event.
  *
  * Environment variables
@@ -427,7 +427,7 @@ while (true) {
     }
 
     log_msg('Polling worldState (' . count($configs) . ' active user(s))…');
-    $ws_raw = http_get('https://oracle.browse.wf/worldState.json');
+    $ws_raw = http_get('http://localhost/worldstate.php');
     if (!$ws_raw) {
         $err_msg = 'worldState fetch failed at ' . date('Y-m-d H:i:s');
         log_msg($err_msg . ', will retry.');

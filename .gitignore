@@ -1,5 +1,8 @@
 node_modules/
 
+# tsc emits source maps next to the typestripped output
+*.js.map
+
 # Symlinks
 EE
 Lotus
